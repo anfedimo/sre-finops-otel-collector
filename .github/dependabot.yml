@@ -1,0 +1,22 @@
+# Actualización automática por PR: PII-REGEX-001 y la validación contra el binario del Collector
+# bloquean cualquier versión que rompa el enmascaramiento.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directories: ["/scripts", "/traffic-generator"]
+    schedule: { interval: weekly, day: monday }
+    groups:
+      python: { patterns: ["*"] }
+    commit-message: { prefix: ":wrench:" }
+
+  - package-ecosystem: docker
+    directory: "/traffic-generator"
+    schedule: { interval: weekly, day: monday }
+    commit-message: { prefix: ":whale:" }
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule: { interval: weekly, day: monday }
+    groups:
+      actions: { patterns: ["*"] }
+    commit-message: { prefix: ":octocat:" }

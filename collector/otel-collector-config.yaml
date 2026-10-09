@@ -124,6 +124,21 @@ connectors:
 
   forward/sampling: {}
 
+  # Log-to-Metrics en el Edge: el log crudo (stack traces con PAN y cuentas incluidos) no sale del
+  # Gateway; solo su conteo por servicio y severidad. Visibilidad de errores sin costo de almacenamiento.
+  count:
+    logs:
+      app.log.records:
+        description: Registros de log recibidos por servicio
+        attributes:
+          - key: service.name
+      app.log.errors:
+        description: Registros de log con severidad ERROR o superior por servicio
+        conditions:
+          - severity_number >= SEVERITY_NUMBER_ERROR
+        attributes:
+          - key: service.name
+
 exporters:
   # Dual-Shipping durante la ventana de transición: APM legado (Dynatrace, ingesta OTLP/HTTP)
   # y backend OTel agnóstico. Cutover (F3) = retirar otlp_http/dynatrace del pipeline.
@@ -177,5 +192,13 @@ service:
       exporters: [otlp_http/dynatrace, otlp_grpc/backend-otel]
     metrics/red:
       receivers: [span_metrics]
+      processors: [batch]
+      exporters: [prometheus]
+    logs/ingest:
+      receivers: [otlp]
+      processors: [memory_limiter]
+      exporters: [count]
+    metrics/logs:
+      receivers: [count]
       processors: [batch]
       exporters: [prometheus]
