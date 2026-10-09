@@ -25,6 +25,17 @@ jobs:
       - run: pip install -q -r scripts/requirements.txt
       - run: python scripts/test_pii_redaction.py
 
+  rca-agent:
+    name: SRE-RCA-001 · agente de RCA (clasificación y guardrails)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: pip install -q -r scripts/requirements.txt
+      - run: python scripts/test_rca_agent.py
+
   collector-config:
     name: Configs del Collector contra el binario
     runs-on: ubuntu-latest

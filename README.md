@@ -264,6 +264,39 @@ se tramitan por PR con aprobación de DevSecOps.
 | `PaymentsQrErrorBudgetFastBurn` (page) | Guardia de la vertical dueña. Mitigar primero: rollback del último release. |
 | `PaymentsQrErrorBudgetSlowBurn` (ticket) | Revisión en horario laboral por la vertical dueña. |
 
+## Agente de RCA (MCP · solo lectura)
+
+`scripts/sre_rca_agent.py` reconstruye el Customer Journey desde Tempo vía Model Context Protocol, clasifica la
+falla y emite el informe RCA para el Incident Commander. El agente no ejecuta acciones.
+
+| Elemento | Decisión |
+|---|---|
+| Fuente | Servidor MCP de Tempo (`/api/mcp`), 7 herramientas de lectura en allowlist |
+| Motor `llm` | Modelo de razonamiento compatible con la API de OpenAI: DeepSeek-R1, Ollama o endpoint privado |
+| Motor `rules` | Reglas de negocio de la plataforma, sin modelo. Siempre corre: si el modelo contradice el impacto en el Error Budget, prevalece la regla |
+| Modo por defecto | Sin `DEEPSEEK_API_KEY` ni `LLM_BASE_URL`: motor `rules`, respuesta inmediata y determinista. Con cualquiera de las dos variables, el agente pasa a DeepSeek-R1 |
+| Herramientas | `--tool-mode prefetch` (defecto): el journey se consulta por MCP y se entrega resuelto. `--tool-mode native`: el modelo invoca las 7 herramientas con function calling |
+| Privacidad | Al modelo solo llegan atributos de negocio y del journey; envío bloqueado si detecta PAN, email o IDs numéricos |
+| Residencia del dato | En producción, modelo en la red del banco (Ollama o endpoint privado), no API pública |
+
+| Clasificación | Ejemplo | Error Budget |
+|---|---|---|
+| `RECHAZO_NEGOCIO` | HTTP 500 con `business.outcome=declined` (`RIESGO_ALTO`) | No consume |
+| `FALLA_TECNICA_OCULTA` | HTTP 200 con `business.outcome=failed` (`ERROR_SISTEMA`) | Consume |
+| `FALLA_TECNICA` | Excepción no controlada (timeout del core AS400) | Consume |
+| `LATENCIA` | Span raíz > 800 ms | Consume (SLO de latencia) |
+
+```bash
+kubectl -n observability port-forward svc/tempo 3200:3200                    # Expone el MCP de Tempo
+make rca                                                                     # Falla más reciente (60 min)
+make rca RCA_ARGS="--trace-id <id>"                                          # Traza específica
+make rca RCA_ARGS="--query '{ event:name = \"exception\" }' --window 240"     # Consulta TraceQL propia
+LLM_BASE_URL=http://localhost:11434/v1 LLM_MODEL=deepseek-r1:7b make rca     # Motor llm local (Ollama)
+DEEPSEEK_API_KEY=... make rca RCA_ARGS="--show-reasoning"                    # Motor llm DeepSeek-R1 con razonamiento visible
+DEEPSEEK_API_KEY=... make rca RCA_ARGS="--tool-mode native --show-reasoning" # R1 invoca las herramientas MCP
+make test-rca                                                                # Regresión sin infraestructura
+```
+
 Runner self-hosted:
 
 ```bash
