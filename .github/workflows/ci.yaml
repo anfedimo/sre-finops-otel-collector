@@ -8,9 +8,10 @@ on:
 permissions:
   contents: read
 
+# Binarios oficiales desde GitHub Releases, verificados por SHA-256: sin dependencia de registros de imágenes
 env:
-  COLLECTOR_IMAGE: otel/opentelemetry-collector-contrib:0.162.0
-  PROMETHEUS_IMAGE: prom/prometheus:v3.13.4
+  OTELCOL_VERSION: "0.162.0"
+  PROMETHEUS_VERSION: "3.13.4"
 
 jobs:
   pii-regression:
@@ -29,22 +30,46 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Gateway
+
+      - name: otelcol-contrib (binario oficial verificado por SHA-256)
         run: |
-          docker run --rm -e PII_HASH_SALT=ci -e DT_OTLP_ENDPOINT=http://ci:4318 -e DT_API_TOKEN=ci \
-            -e OTEL_BACKEND_ENDPOINT=ci:4317 -v "$PWD/collector/otel-collector-config.yaml:/c.yaml:ro" \
-            "$COLLECTOR_IMAGE" validate --config=/c.yaml
+          set -euo pipefail
+          base="https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v${OTELCOL_VERSION}"
+          file="otelcol-contrib_${OTELCOL_VERSION}_linux_amd64.tar.gz"
+          curl -sSfLO "$base/$file"
+          # El .sha256 del release contiene solo el hash
+          echo "$(curl -sSfL "$base/$file.sha256")  $file" | sha256sum -c -
+          tar xzf "$file" -C /usr/local/bin otelcol-contrib
+          otelcol-contrib --version
+
+      - name: Gateway
+        env:
+          PII_HASH_SALT: ci
+          DT_OTLP_ENDPOINT: http://ci:4318
+          DT_API_TOKEN: ci
+          OTEL_BACKEND_ENDPOINT: ci:4317
+        run: otelcol-contrib validate --config=collector/otel-collector-config.yaml
+
       - name: Collector de nodo (deploy/eks)
         run: |
           pip install -q pyyaml
           python -c "import yaml; d=yaml.safe_load(open('deploy/eks/otel-node-collector.yaml')); yaml.safe_dump(d['spec']['config'], open('/tmp/node.yaml','w'))"
-          docker run --rm -v /tmp/node.yaml:/c.yaml:ro "$COLLECTOR_IMAGE" validate --config=/c.yaml
+          otelcol-contrib validate --config=/tmp/node.yaml
 
   slo-rules:
     name: Reglas SLO (promtool)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - run: |
-          docker run --rm --entrypoint promtool -v "$PWD/prometheus:/p:ro" \
-            "$PROMETHEUS_IMAGE" check rules /p/rules/slo-payments-qr.yaml
+
+      - name: promtool (binario oficial verificado por SHA-256)
+        run: |
+          set -euo pipefail
+          base="https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}"
+          file="prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+          curl -sSfLO "$base/$file"
+          curl -sSfL "$base/sha256sums.txt" | grep " $file\$" | sha256sum -c -
+          tar xzf "$file" --strip-components=1 -C /usr/local/bin "prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool"
+          promtool --version | head -1
+
+      - run: promtool check rules prometheus/rules/slo-payments-qr.yaml
