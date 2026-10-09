@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  # Métricas RED calculadas sobre el 100% del tráfico (fuente del Error Budget)
+  - job_name: otel-gateway-red
+    static_configs:
+      - targets: ["otel-gateway:8889"]
+
+  # Métricas internas: spans recibidos vs. exportados (evidencia del ahorro FinOps)
+  - job_name: otel-gateway-internal
+    static_configs:
+      - targets: ["otel-gateway:8888"]
