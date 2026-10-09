@@ -1,8 +1,8 @@
 # Banco Plus · PoC local de observabilidad (ARM64 nativo: todas las imágenes son multi-arch)
 #
-#   traffic-generator ──OTLP──► otel-gateway ──┬──► jaeger-legacy  (APM legacy)   :16686
-#                                              ├──► jaeger-saas    (SaaS nuevo)   :16687
-#                                              └──► prometheus     (RED / SLOs)   :9090
+#   traffic-generator ──OTLP──► otel-gateway ──┬──► apm-legacy    (stand-in Dynatrace, OTLP/HTTP)  :16686
+#   (emula agente Java)                        ├──► otel-backend  (stand-in Elastic / Tempo)       :16687
+#                                              └──► prometheus    (RED / SLO / Error Budget)       :9090
 
 name: bancoplus-observability-poc
 
@@ -11,19 +11,22 @@ services:
     image: otel/opentelemetry-collector-contrib:0.162.0
     command: ["--config=/etc/otelcol/config.yaml"]
     environment:
-      # En producción esta sal viene de un secreto (Vault / Secrets Manager), nunca del repo
+      # En producción estos valores vienen del gestor de secretos, nunca del repo
       PII_HASH_SALT: ${PII_HASH_SALT:-poc-salt-cambiar-en-prod}
+      DT_OTLP_ENDPOINT: ${DT_OTLP_ENDPOINT:-http://apm-legacy:4318}   # prod: https://<env-id>.live.dynatrace.com/api/v2/otlp
+      DT_API_TOKEN: ${DT_API_TOKEN:-poc-token}                          # scope: openTelemetryTrace.ingest
+      OTEL_BACKEND_ENDPOINT: ${OTEL_BACKEND_ENDPOINT:-otel-backend:4317}
     volumes:
       - ./collector/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
     ports:
       - "4317:4317"     # OTLP gRPC
       - "4318:4318"     # OTLP HTTP
       - "8888:8888"     # métricas internas del Collector
-      - "8889:8889"     # métricas RED (spanmetrics)
+      - "8889:8889"     # métricas RED (span_metrics)
       - "13133:13133"   # health check
     depends_on:
-      - jaeger-legacy
-      - jaeger-saas
+      - apm-legacy
+      - otel-backend
     deploy:
       resources:
         limits:
@@ -35,20 +38,24 @@ services:
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-gateway:4317
       TPS: ${TPS:-50}
-      P_TECH_ERROR: ${P_TECH_ERROR:-0.07}
-      P_SLOW: ${P_SLOW:-0.05}
-      P_BUSINESS_DECLINE: ${P_BUSINESS_DECLINE:-0.05}
+      APP_VERSION: ${APP_VERSION:-1.0.0}
+      # Baseline dentro del SLO; los releases cambian el perfil vía scripts/deploy.sh
+      P_TECH_ERROR: ${P_TECH_ERROR:-0.0001}
+      P_HIDDEN_ERROR_200: ${P_HIDDEN_ERROR_200:-0.0001}
+      P_RISK_DECLINE_500: ${P_RISK_DECLINE_500:-0.03}
+      P_FUNDS_DECLINE_200: ${P_FUNDS_DECLINE_200:-0.04}
+      P_SLOW: ${P_SLOW:-0.002}
       P_HIGH_VALUE: ${P_HIGH_VALUE:-0.01}
     depends_on:
       - otel-gateway
     restart: unless-stopped
 
-  jaeger-legacy:
+  apm-legacy:
     image: jaegertracing/jaeger:2.22.0
     ports:
       - "16686:16686"
 
-  jaeger-saas:
+  otel-backend:
     image: jaegertracing/jaeger:2.22.0
     ports:
       - "16687:16686"
@@ -60,6 +67,7 @@ services:
       - --web.enable-lifecycle
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
     ports:
       - "9090:9090"
     depends_on:

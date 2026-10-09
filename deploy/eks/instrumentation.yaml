@@ -1,0 +1,36 @@
+# Autoinstrumentación Java en EKS vía OpenTelemetry Operator. Cero cambios en código o imagen.
+# Activación por namespace (no por aplicación): la vertical migra con un PR a este repositorio.
+# Prerrequisito: el namespace queda fuera del namespaceSelector de DynaKube en el mismo cambio
+# (un solo agente por JVM; OneAgent y el agente OTel no coexisten).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pagos
+  labels:
+    migration.bancoplus.co/wave: "F2-ola-1"
+  annotations:
+    instrumentation.opentelemetry.io/inject-java: "true"
+---
+apiVersion: opentelemetry.io/v1alpha1
+kind: Instrumentation
+metadata:
+  name: java-zero-code
+  namespace: pagos
+spec:
+  exporter:
+    endpoint: http://otel-node-collector.observability.svc.cluster.local:4318
+  propagators: [tracecontext, baggage, b3multi]
+  sampler:
+    type: parentbased_always_on      # el muestreo se decide en el Gateway (tail sampling)
+  resource:
+    addK8sUIDAttributes: true
+  java:
+    image: ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java:2.32.0
+    env:
+      # Contrato de semántica de negocio (ver README · Semántica de negocio)
+      - name: OTEL_INSTRUMENTATION_HTTP_SERVER_CAPTURE_RESPONSE_HEADERS
+        value: X-Business-Operation,X-Business-Outcome,X-Business-Reason
+      - name: OTEL_RESOURCE_ATTRIBUTES
+        value: service.namespace=pluspay,team.tribe=tribu-pagos
+      - name: OTEL_LOGS_EXPORTER
+        value: otlp

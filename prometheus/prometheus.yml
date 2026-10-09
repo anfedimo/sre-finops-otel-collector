@@ -1,5 +1,9 @@
 global:
   scrape_interval: 15s
+  evaluation_interval: 30s
+
+rule_files:
+  - /etc/prometheus/rules/*.yaml
 
 scrape_configs:
   # Métricas RED calculadas sobre el 100% del tráfico (fuente del Error Budget)
