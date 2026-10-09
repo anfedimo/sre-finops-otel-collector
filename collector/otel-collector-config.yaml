@@ -1,0 +1,201 @@
+# =============================================================================
+# Banco Plus · OTel Collector Gateway (capa intermedia de procesamiento)
+# -----------------------------------------------------------------------------
+# Flujo:
+#   apps (OTLP) ──► traces/ingest ──► [memory_limiter → transform/pii]
+#                         │
+#                         ├──► span_metrics (100% del tráfico → SLIs/Error Budget exactos)
+#                         └──► forward      ──► traces/export
+#                                                 [tail_sampling → batch]
+#                                                   ├──► APM legacy   (Dual-Shipping)
+#                                                   └──► SaaS nuevo   (Dual-Shipping)
+#
+# Principios:
+#   1. Security by Design: la PII se destruye AQUÍ, dentro de la red del banco,
+#      antes de cualquier exporter (Ley 1581/2012, SFC CE 007/2018, PCI DSS).
+#   2. FinOps: muestreo post-análisis en memoria; se conserva el 100% de errores,
+#      lentitud y anomalías, y solo el 5% de las transacciones exitosas repetitivas.
+#   3. Las métricas RED se calculan ANTES del muestreo, así el Quality Gate
+#      consume datos completos aunque se descarte el 95% de las trazas exitosas.
+# =============================================================================
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Protege al Gateway de OOM: tail_sampling retiene trazas en memoria.
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+
+  # ---------------------------------------------------------------------------
+  # PII Masking en el borde. Tres capas, de la más precisa a la más amplia:
+  #   A) Llaves conocidas  → hash SHA-256 con sal (se pierde el dato, se conserva
+  #                          la correlación: "¿es el mismo cliente?").
+  #   B) Llaves prohibidas → se eliminan (CVV, PIN, tokens, contraseñas).
+  #   C) Barrido por Regex → sobre TODOS los valores string, para atrapar la PII
+  #                          que un desarrollador dejó en un mensaje o una URL.
+  # Regex en sintaxis RE2 (Go): sin lookbehind. "$$1" = grupo 1 escapado para
+  # que el Collector no lo interprete como variable de entorno.
+  # ---------------------------------------------------------------------------
+  transform/pii:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          # A) Hash con sal de identificadores que necesitamos correlacionar
+          - set(attributes["account.number"], SHA256(Concat([attributes["account.number"], "${env:PII_HASH_SALT}"], ""))) where attributes["account.number"] != nil
+          - set(attributes["customer.document"], SHA256(Concat([attributes["customer.document"], "${env:PII_HASH_SALT}"], ""))) where attributes["customer.document"] != nil
+          # B) Datos que jamás deben existir en telemetría
+          - delete_matching_keys(attributes, "(?i)(^|[._])(cvv|cvc|pin|password|passwd|secret|token|authorization)($|[._])")
+          # C) Barrido Regex (el orden importa: primero PAN, luego números genéricos)
+          #    PAN de 16 dígitos con o sin separadores → se conservan los últimos 4 (PCI DSS)
+          - replace_all_patterns(attributes, "value", "\\b\\d{4}[ -]?\\d{4}[ -]?\\d{4}[ -]?(\\d{4})\\b", "****-****-****-$$1")
+          #    PAN American Express (15 dígitos)
+          - replace_all_patterns(attributes, "value", "\\b3[47]\\d{2}[ -]?\\d{6}[ -]?(\\d{5})\\b", "****-******-$$1")
+          #    Correos electrónicos
+          - replace_all_patterns(attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", "[EMAIL_REDACTADO]")
+          #    Cuentas, cédulas y celulares (6 a 12 dígitos contiguos)
+          - replace_all_patterns(attributes, "value", "\\b\\d{6,12}\\b", "[NUM_REDACTADO]")
+          #    El nombre del span también puede filtrar PII (p. ej. rutas con IDs)
+          - replace_pattern(name, "\\b\\d{6,19}\\b", "{id}")
+      - context: spanevent
+        statements:
+          # Las excepciones suelen traer PII en exception.message / stacktrace
+          - replace_all_patterns(attributes, "value", "\\b\\d{4}[ -]?\\d{4}[ -]?\\d{4}[ -]?(\\d{4})\\b", "****-****-****-$$1")
+          - replace_all_patterns(attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", "[EMAIL_REDACTADO]")
+          - replace_all_patterns(attributes, "value", "\\b\\d{6,12}\\b", "[NUM_REDACTADO]")
+      - context: resource
+        statements:
+          - delete_matching_keys(attributes, "(?i).*(password|secret|token).*")
+
+  # ---------------------------------------------------------------------------
+  # Muestreo Post-Análisis (Tail-Based Sampling).
+  # El Collector agrupa todos los spans de una traza en memoria durante
+  # decision_wait y DESPUÉS decide. Las políticas se evalúan en OR: basta que
+  # una diga "sample" para retener la traza completa.
+  # ---------------------------------------------------------------------------
+  tail_sampling:
+    decision_wait: 10s               # ventana para que lleguen todos los spans de la traza
+    num_traces: 100000               # trazas simultáneas en memoria (dimensionar con TPS × decision_wait)
+    expected_new_traces_per_sec: 1000
+    decision_cache:
+      sampled_cache_size: 100000     # spans tardíos de trazas ya retenidas también se exportan
+    policies:
+      # 100% de errores técnicos (span status = ERROR)
+      - name: retener-errores
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      # 100% de respuestas 5xx, aunque el SDK no haya marcado el status
+      - name: retener-http-5xx
+        type: numeric_attribute
+        numeric_attribute:
+          key: http.response.status_code
+          min_value: 500
+          max_value: 599
+      # 100% de trazas lentas: por encima del umbral del SLO de latencia (p95 < 800 ms)
+      - name: retener-lentas
+        type: latency
+        latency:
+          threshold_ms: 800
+      # 100% de anomalías de negocio: pagos de alto valor (≥ 50 M COP), candidatos a fraude
+      - name: retener-alto-valor
+        type: numeric_attribute
+        numeric_attribute:
+          key: payment.amount
+          min_value: 50000000
+          max_value: 9999999999999
+      # 100% de trazas marcadas como anómalas por el SDK o por detección upstream
+      - name: retener-anomalias
+        type: string_attribute
+        string_attribute:
+          key: payment.anomaly
+          values: ["true"]
+      # Línea base: 5% de las exitosas repetitivas → se descarta el 95%
+      - name: linea-base-exitosas
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 5
+
+  batch:
+    send_batch_size: 1024
+    timeout: 5s
+
+connectors:
+  # Métricas RED (Rate, Errors, Duration) sobre el 100% de los spans, antes del muestreo.
+  # Esta es la fuente de verdad del Error Budget y del Quality Gate.
+  span_metrics:
+    histogram:
+      explicit:
+        buckets: [50ms, 100ms, 250ms, 500ms, 800ms, 1s, 2s, 5s]
+    dimensions:
+      - name: http.response.status_code
+      - name: payment.channel
+    metrics_flush_interval: 15s
+
+  # Puente entre el pipeline de ingesta y el de exportación
+  forward/sampling: {}
+
+exporters:
+  # Dual-Shipping: la MISMA telemetría sale hacia ambos backends durante la migración.
+  # Cuando el SaaS nuevo esté validado, se retira el legacy borrando una línea: cero cambios en las apps.
+  otlp_grpc/apm-legacy:
+    endpoint: jaeger-legacy:4317
+    tls:
+      insecure: true
+    sending_queue:
+      enabled: true
+      queue_size: 5000
+    retry_on_failure:
+      enabled: true
+
+  otlp_grpc/saas-nuevo:
+    endpoint: jaeger-saas:4317
+    tls:
+      insecure: true
+    sending_queue:
+      enabled: true
+      queue_size: 5000
+    retry_on_failure:
+      enabled: true
+
+  # Prometheus consume las métricas RED (fuente del Quality Gate)
+  prometheus:
+    endpoint: 0.0.0.0:8889
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  telemetry:
+    # Métricas internas del Collector (spans recibidos vs. exportados = ahorro FinOps)
+    metrics:
+      level: detailed
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+  pipelines:
+    traces/ingest:
+      receivers: [otlp]
+      processors: [memory_limiter, transform/pii]
+      exporters: [span_metrics, forward/sampling]
+    traces/export:
+      receivers: [forward/sampling]
+      processors: [tail_sampling, batch]
+      exporters: [otlp_grpc/apm-legacy, otlp_grpc/saas-nuevo]
+    metrics/red:
+      receivers: [span_metrics]
+      processors: [batch]
+      exporters: [prometheus]

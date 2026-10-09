@@ -1,0 +1,66 @@
+# Banco Plus · PoC local de observabilidad (ARM64 nativo: todas las imágenes son multi-arch)
+#
+#   traffic-generator ──OTLP──► otel-gateway ──┬──► jaeger-legacy  (APM legacy)   :16686
+#                                              ├──► jaeger-saas    (SaaS nuevo)   :16687
+#                                              └──► prometheus     (RED / SLOs)   :9090
+
+name: bancoplus-observability-poc
+
+services:
+  otel-gateway:
+    image: otel/opentelemetry-collector-contrib:0.162.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    environment:
+      # En producción esta sal viene de un secreto (Vault / Secrets Manager), nunca del repo
+      PII_HASH_SALT: ${PII_HASH_SALT:-poc-salt-cambiar-en-prod}
+    volumes:
+      - ./collector/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4317:4317"     # OTLP gRPC
+      - "4318:4318"     # OTLP HTTP
+      - "8888:8888"     # métricas internas del Collector
+      - "8889:8889"     # métricas RED (spanmetrics)
+      - "13133:13133"   # health check
+    depends_on:
+      - jaeger-legacy
+      - jaeger-saas
+    deploy:
+      resources:
+        limits:
+          memory: 1g    # memory_limiter trabaja sobre este límite
+    restart: unless-stopped
+
+  traffic-generator:
+    build: ./traffic-generator
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-gateway:4317
+      TPS: ${TPS:-50}
+      P_TECH_ERROR: ${P_TECH_ERROR:-0.07}
+      P_SLOW: ${P_SLOW:-0.05}
+      P_BUSINESS_DECLINE: ${P_BUSINESS_DECLINE:-0.05}
+      P_HIGH_VALUE: ${P_HIGH_VALUE:-0.01}
+    depends_on:
+      - otel-gateway
+    restart: unless-stopped
+
+  jaeger-legacy:
+    image: jaegertracing/jaeger:2.22.0
+    ports:
+      - "16686:16686"
+
+  jaeger-saas:
+    image: jaegertracing/jaeger:2.22.0
+    ports:
+      - "16687:16686"
+
+  prometheus:
+    image: prom/prometheus:v3.13.4
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - otel-gateway
