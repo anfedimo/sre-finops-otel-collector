@@ -1,0 +1,1 @@
+# sre-finops-otel-collector
