@@ -33,7 +33,7 @@ flowchart LR
     subgraph VPC["Recolección · VPC del banco"]
         direction LR
         TASK["Collector en la tarea"]
-        NODE["Collector DaemonSet<br/>loadbalancing por traceID"]
+        NODE["Collector DaemonSet<br/>load_balancing por traceID"]
         subgraph GW["otel-gateway"]
             direction TB
             RX["receiver otlp"] --> ML["memory_limiter"]
@@ -161,6 +161,7 @@ make up              # despliegue del stack
 make validate        # config del Gateway contra el binario del Collector
 make validate-rules  # reglas SLO con promtool
 make verify          # Quality Gates de telemetría (≥ 60 s de tráfico)
+make test-pii        # regresión de las regex de PII (sin infraestructura)
 make gate            # Quality Gate pre-deploy (Error Budget)
 make release VERSION=1.1.0 PROFILE=stable      # gate → deploy → canary
 make release VERSION=1.2.0 PROFILE=regression  # fallas ocultas en 200 → canary FAIL → rollback
@@ -184,6 +185,18 @@ Mix del generador (variables de entorno): `P_TECH_ERROR`, `P_HIDDEN_ERROR_200`, 
 | BIZ-001 | Estado del span consistente con `business.outcome`; reporta tasa de error por HTTP vs. tasa técnica real | 0 inconsistencias | Bloqueante |
 | FINOPS-001 | Spans recibidos vs. exportados por el Gateway | Reducción ≥ 30% | Bloqueante |
 | SLO-001 | Disponibilidad técnica de `payments-qr` | ≥ 99.95% | Informativo |
+
+### Regresión de PII (CI)
+
+`scripts/test_pii_redaction.py` extrae las sentencias de `transform/pii` de la configuración del Collector
+y las aplica, en el mismo orden, sobre fixtures representativos (query strings URL-encoded del agente Java,
+PAN, Amex, mensajes de excepción, llaves prohibidas) y sobre negativos que no deben alterarse.
+Se ejecuta en cada PR (`.github/workflows/ci.yaml`) junto con la validación de las configuraciones
+del Collector contra el binario y `promtool` sobre las reglas SLO.
+
+| Gate | Control | Criterio | Tipo |
+|---|---|---|---|
+| PII-REGEX-001 | Sentencias de `transform/pii` sobre fixtures positivos y negativos | 100% de fixtures | Bloqueante en PR |
 
 ### Error Budget (CI/CD)
 
@@ -221,7 +234,7 @@ Las mismas reglas alimentan las alertas de la vertical en `prometheus/rules/`.
 | Identificadores correlacionables | SHA-256 + sal (`PII_HASH_SALT`) | `account.number`, `customer.document` → hash |
 | Datos de autenticación (PCI-DSS 3.2) | Eliminación por llave | `cvv`, `pin`, `token`, `password` |
 | PAN (PCI-DSS 3.4) | Regex con truncado | `****-****-****-1234` |
-| Email, cuentas, cédulas | Regex fail-closed | `[EMAIL_REDACTADO]`, `[NUM_REDACTADO]` |
+| Email (literal y URL-encoded `%40`), cuentas, cédulas | Regex fail-closed | `[EMAIL_REDACTADO]`, `[NUM_REDACTADO]` |
 
 Cobertura: atributos de span, eventos de excepción, nombres de span y atributos de resource. Secretos
 (`PII_HASH_SALT`, `DT_API_TOKEN`) inyectados desde el gestor de secretos. Excepciones al patrón numérico

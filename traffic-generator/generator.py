@@ -17,6 +17,7 @@ import os
 import random
 import time
 from collections import Counter
+from urllib.parse import urlencode
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -127,6 +128,7 @@ def one_payment() -> str:
     amount = int(random.uniform(HIGH_VALUE_COP, 200_000_000) if random.random() < P_HIGH_VALUE
                  else random.uniform(5_000, 2_000_000))
     channel = random.choice(CHANNELS)
+    query = urlencode({"account": account, "email": email})
     risk_score = round(random.uniform(0.86, 0.99), 2) if outcome == "risk_decline_500" else round(random.uniform(0.01, 0.40), 2)
     calls_core = outcome != "risk_decline_500"
 
@@ -151,8 +153,9 @@ def one_payment() -> str:
         attributes={
             "http.request.method": "POST",
             "http.route": "/v1/payments/qr",
-            # Caso de prueba: PII en query string (cobertura del barrido Regex)
-            "url.full": f"https://api.bancoplus.co/v1/payments/qr?account={account}&email={email}",
+            # Caso de prueba: PII en query string, URL-encoded como la registra el agente Java (@ → %40)
+            "url.full": f"https://api.bancoplus.co/v1/payments/qr?{query}",
+            "url.query": query,
             "payment.channel": channel,
             **business_headers(outcome),
         },
