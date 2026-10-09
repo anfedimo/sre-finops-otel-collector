@@ -1,0 +1,76 @@
+name: deploy-payments-qr
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "service.version a liberar"
+        required: true
+        default: "1.1.0"
+      release_profile:
+        description: "Comportamiento del release (emulación local)"
+        type: choice
+        options: [stable, regression]
+        default: stable
+      budget_override_reason:
+        description: "Solo hotfix P0 con budget agotado (ID de incidente). Queda auditado."
+        required: false
+        default: ""
+
+concurrency:
+  group: deploy-payments-qr
+  cancel-in-progress: false
+
+env:
+  SLO_PROFILE: poc
+  PROM_URL: http://localhost:9090
+
+jobs:
+  error-budget-gate:
+    name: Quality Gate · Error Budget
+    runs-on: [self-hosted, macOS, ARM64]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup gate
+        run: python3 -m venv .venv && .venv/bin/pip install -q -r scripts/requirements.txt
+      - name: Evaluar Error Budget y burn rate
+        env:
+          BUDGET_OVERRIDE_REASON: ${{ inputs.budget_override_reason }}
+        run: .venv/bin/python scripts/error_budget_gate.py pre-deploy
+
+  deploy:
+    name: Deploy ${{ inputs.version }}
+    needs: error-budget-gate
+    runs-on: [self-hosted, macOS, ARM64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: false            # conserva .deploy/state para rollback
+      - run: scripts/deploy.sh "${{ inputs.version }}" "${{ inputs.release_profile }}"
+
+  canary-analysis:
+    name: Canary Analysis
+    needs: deploy
+    runs-on: [self-hosted, macOS, ARM64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: false
+      - name: Setup gate
+        run: python3 -m venv .venv && .venv/bin/pip install -q -r scripts/requirements.txt
+      - name: Burn rate de la nueva versión
+        run: .venv/bin/python scripts/error_budget_gate.py canary --version "${{ inputs.version }}"
+
+  rollback:
+    name: Rollback automático
+    needs: [deploy, canary-analysis]
+    if: failure() && needs.deploy.result == 'success'
+    runs-on: [self-hosted, macOS, ARM64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: false
+      - run: scripts/deploy.sh --rollback
+      - run: |
+          echo "### Rollback ejecutado · ${{ inputs.version }} retirada por consumo de Error Budget" >> "$GITHUB_STEP_SUMMARY"
+          echo "Abrir post-mortem blameless y registrar la acción en el backlog de la Tribu." >> "$GITHUB_STEP_SUMMARY"

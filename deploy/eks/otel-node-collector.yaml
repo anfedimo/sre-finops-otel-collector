@@ -1,0 +1,42 @@
+# Collector por nodo (DaemonSet): recibe OTLP de los pods y enruta por traceID hacia el Gateway.
+# El enrutamiento por traceID garantiza que todos los spans de una traza lleguen a la misma
+# réplica del Gateway, condición necesaria para tail sampling consistente.
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: otel-node
+  namespace: observability
+spec:
+  mode: daemonset
+  image: otel/opentelemetry-collector-contrib:0.162.0
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_percentage: 80
+        spike_limit_percentage: 20
+      k8sattributes: {}              # requiere ClusterRole de lectura sobre pods/namespaces
+      batch: {}
+    exporters:
+      loadbalancing:
+        routing_key: traceID
+        protocol:
+          otlp:
+            tls:
+              insecure: true         # mTLS vía service mesh en el entorno real
+        resolver:
+          k8s:
+            service: otel-gateway-headless.observability
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, k8sattributes, batch]
+          exporters: [loadbalancing]

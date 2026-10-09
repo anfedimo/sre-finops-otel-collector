@@ -1,0 +1,46 @@
+# SLO · journey pago-qr
+# Fuente única para el Quality Gate (scripts/error_budget_gate.py) y las alertas (prometheus/rules).
+# Cambios vía PR con aprobación de la Tribu dueña y de Plataforma de Confiabilidad.
+
+service: payments-qr
+journey: pago-qr
+owner: tribu-pagos
+
+selector:
+  service_name: payments-qr
+  span_name: ProcessQrPayment
+
+slis:
+  availability:
+    # Pagos sin falla técnica según el estado normalizado en el Gateway (no el código HTTP):
+    # business.outcome=declined fuera del SLI aunque se exponga como 5xx;
+    # business.outcome=failed dentro del SLI aunque se exponga como 2xx.
+    objective: 99.95
+  latency:
+    # Pagos completados por debajo del umbral, medido en el Gateway sobre el 100% del tráfico.
+    objective: 99.0
+    threshold_ms: 800
+
+# Error Budget Policy
+policy:
+  budget_exhausted: block
+  fast_burn: block
+  slow_burn: warn
+  no_data: block            # fail-closed: sin telemetría no hay despliegue
+  min_requests: 100
+  # Significancia estadística del budget: a 99.95% se requieren ≥ 20k eventos (≥ 10 fallas permitidas).
+  # Por debajo, solo aplican los checks de burn rate.
+  min_budget_requests: 20000
+
+profiles:
+  prod:
+    budget_window: 30d
+    fast_burn: {long: 1h, short: 5m, threshold: 14.4}     # 2% del budget en 1h
+    slow_burn: {long: 6h, short: 30m, threshold: 6}       # 5% del budget en 6h
+    canary: {window: 10m, threshold: 14.4, duration_s: 1800, interval_s: 60, min_requests: 500}
+  poc:
+    # Ventanas comprimidas para validación local
+    budget_window: 30m
+    fast_burn: {long: 5m, short: 1m, threshold: 14.4}
+    slow_burn: {long: 15m, short: 3m, threshold: 6}
+    canary: {window: 1m, threshold: 14.4, duration_s: 180, interval_s: 30, min_requests: 50}

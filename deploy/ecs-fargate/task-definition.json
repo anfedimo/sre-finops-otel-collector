@@ -1,0 +1,58 @@
+{
+  "family": "payments-qr",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "runtimePlatform": { "cpuArchitecture": "ARM64", "operatingSystemFamily": "LINUX" },
+  "executionRoleArn": "arn:aws:iam::<ACCOUNT_ID>:role/payments-qr-execution",
+  "taskRoleArn": "arn:aws:iam::<ACCOUNT_ID>:role/payments-qr-task",
+  "volumes": [{ "name": "otel-javaagent" }],
+  "containerDefinitions": [
+    {
+      "name": "otel-javaagent-init",
+      "image": "ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java:2.32.0",
+      "essential": false,
+      "command": ["cp", "/javaagent.jar", "/otel/javaagent.jar"],
+      "mountPoints": [{ "sourceVolume": "otel-javaagent", "containerPath": "/otel" }]
+    },
+    {
+      "name": "otel-collector",
+      "image": "otel/opentelemetry-collector-contrib:0.162.0",
+      "essential": true,
+      "command": ["--config=env:OTEL_COLLECTOR_CONFIG"],
+      "secrets": [
+        {
+          "name": "OTEL_COLLECTOR_CONFIG",
+          "valueFrom": "arn:aws:ssm:<REGION>:<ACCOUNT_ID>:parameter/observability/otel/fargate-task-collector"
+        }
+      ],
+      "healthCheck": {
+        "command": ["CMD", "/otelcol-contrib", "components"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3
+      }
+    },
+    {
+      "name": "payments-qr",
+      "image": "<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/payments-qr:1.4.2",
+      "essential": true,
+      "dependsOn": [
+        { "containerName": "otel-javaagent-init", "condition": "COMPLETE" },
+        { "containerName": "otel-collector", "condition": "START" }
+      ],
+      "mountPoints": [{ "sourceVolume": "otel-javaagent", "containerPath": "/otel", "readOnly": true }],
+      "environment": [
+        { "name": "JAVA_TOOL_OPTIONS", "value": "-javaagent:/otel/javaagent.jar" },
+        { "name": "OTEL_SERVICE_NAME", "value": "payments-qr" },
+        { "name": "OTEL_EXPORTER_OTLP_ENDPOINT", "value": "http://localhost:4318" },
+        { "name": "OTEL_PROPAGATORS", "value": "tracecontext,baggage,b3multi" },
+        { "name": "OTEL_TRACES_SAMPLER", "value": "parentbased_always_on" },
+        { "name": "OTEL_RESOURCE_ATTRIBUTES", "value": "service.namespace=pluspay,team.tribe=tribu-pagos,service.version=1.4.2" },
+        { "name": "OTEL_INSTRUMENTATION_HTTP_SERVER_CAPTURE_RESPONSE_HEADERS", "value": "X-Business-Operation,X-Business-Outcome,X-Business-Reason" }
+      ],
+      "portMappings": [{ "containerPort": 8080, "protocol": "tcp" }]
+    }
+  ]
+}

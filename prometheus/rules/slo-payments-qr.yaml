@@ -1,0 +1,48 @@
+# Multi-window, multi-burn-rate alerts · payments-qr (SLO 99.95%)
+# Routing por label team: la Tribu atiende su SLO; Plataforma solo recibe fallas del pipeline de telemetría.
+
+groups:
+  - name: slo:payments-qr:recording
+    interval: 30s
+    rules:
+      - record: slo:payments_qr:error_ratio:rate5m
+        expr: |
+          (sum(rate(traces_span_metrics_calls_total{service_name="payments-qr",span_name="ProcessQrPayment",status_code="STATUS_CODE_ERROR"}[5m])) or vector(0))
+          / sum(rate(traces_span_metrics_calls_total{service_name="payments-qr",span_name="ProcessQrPayment"}[5m]))
+      - record: slo:payments_qr:error_ratio:rate30m
+        expr: |
+          (sum(rate(traces_span_metrics_calls_total{service_name="payments-qr",span_name="ProcessQrPayment",status_code="STATUS_CODE_ERROR"}[30m])) or vector(0))
+          / sum(rate(traces_span_metrics_calls_total{service_name="payments-qr",span_name="ProcessQrPayment"}[30m]))
+      - record: slo:payments_qr:error_ratio:rate1h
+        expr: |
+          (sum(rate(traces_span_metrics_calls_total{service_name="payments-qr",span_name="ProcessQrPayment",status_code="STATUS_CODE_ERROR"}[1h])) or vector(0))
+          / sum(rate(traces_span_metrics_calls_total{service_name="payments-qr",span_name="ProcessQrPayment"}[1h]))
+      - record: slo:payments_qr:error_ratio:rate6h
+        expr: |
+          (sum(rate(traces_span_metrics_calls_total{service_name="payments-qr",span_name="ProcessQrPayment",status_code="STATUS_CODE_ERROR"}[6h])) or vector(0))
+          / sum(rate(traces_span_metrics_calls_total{service_name="payments-qr",span_name="ProcessQrPayment"}[6h]))
+
+  - name: slo:payments-qr:alerts
+    rules:
+      - alert: PaymentsQrErrorBudgetFastBurn
+        expr: |
+          slo:payments_qr:error_ratio:rate1h > (14.4 * 0.0005)
+          and slo:payments_qr:error_ratio:rate5m > (14.4 * 0.0005)
+        labels:
+          severity: page
+          team: tribu-pagos
+          slo: payments-qr-availability
+        annotations:
+          summary: "payments-qr consume 2% del Error Budget mensual por hora"
+          runbook_url: "https://github.com/anfedimo/sre-finops-otel-collector#runbook-error-budget"
+      - alert: PaymentsQrErrorBudgetSlowBurn
+        expr: |
+          slo:payments_qr:error_ratio:rate6h > (6 * 0.0005)
+          and slo:payments_qr:error_ratio:rate30m > (6 * 0.0005)
+        labels:
+          severity: ticket
+          team: tribu-pagos
+          slo: payments-qr-availability
+        annotations:
+          summary: "payments-qr consume 5% del Error Budget mensual cada 6h"
+          runbook_url: "https://github.com/anfedimo/sre-finops-otel-collector#runbook-error-budget"
