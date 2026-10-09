@@ -30,7 +30,7 @@ jobs:
     name: Quality Gate · Error Budget
     runs-on: [self-hosted, macOS, ARM64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Setup gate
         run: python3 -m venv .venv && .venv/bin/pip install -q -r scripts/requirements.txt
       - name: Evaluar Error Budget y burn rate
@@ -43,7 +43,7 @@ jobs:
     needs: error-budget-gate
     runs-on: [self-hosted, macOS, ARM64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           clean: false            # conserva .deploy/state para rollback
       - run: scripts/deploy.sh "${{ inputs.version }}" "${{ inputs.release_profile }}"
@@ -53,7 +53,7 @@ jobs:
     needs: deploy
     runs-on: [self-hosted, macOS, ARM64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           clean: false
       - name: Setup gate
@@ -67,7 +67,7 @@ jobs:
     if: failure() && needs.deploy.result == 'success'
     runs-on: [self-hosted, macOS, ARM64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           clean: false
       - run: scripts/deploy.sh --rollback
