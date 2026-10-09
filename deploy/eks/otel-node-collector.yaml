@@ -40,3 +40,7 @@ spec:
           receivers: [otlp]
           processors: [memory_limiter, k8sattributes, batch]
           exporters: [load_balancing]
+        logs:
+          receivers: [otlp]
+          processors: [memory_limiter, k8sattributes, batch]
+          exporters: [load_balancing]
