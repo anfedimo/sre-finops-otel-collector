@@ -1,4 +1,4 @@
-.PHONY: up down restart validate validate-rules verify test-pii logs incident gate release rollback
+.PHONY: up down restart validate validate-rules verify test-pii test-rca rca logs incident gate release rollback
 
 COLLECTOR_IMAGE  := otel/opentelemetry-collector-contrib:0.162.0
 PROMETHEUS_IMAGE := prom/prometheus:v3.13.4
@@ -34,6 +34,12 @@ verify:          ## Quality Gates de telemetría (PII, FinOps, SLO)
 
 test-pii: $(PY)  ## Regresión de las regex de PII contra la config del Collector (sin infraestructura)
 	$(PY) scripts/test_pii_redaction.py
+
+test-rca: $(PY)  ## Regresión del agente de RCA sobre trazas reales congeladas (sin infraestructura)
+	$(PY) scripts/test_rca_agent.py
+
+rca: $(PY)       ## Informe RCA de la falla más reciente vía MCP (requiere port-forward a svc/tempo)
+	$(PY) scripts/sre_rca_agent.py $(RCA_ARGS)
 
 logs:
 	docker compose logs -f otel-gateway
