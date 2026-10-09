@@ -28,7 +28,7 @@ SLO_AVAILABILITY = float(os.getenv("SLO_AVAILABILITY", "99.95"))
 
 PII_PATTERNS = {
     "PAN": re.compile(r"\b\d{4}[ -]?\d{4}[ -]?\d{4}[ -]?\d{4}\b"),
-    "EMAIL": re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
+    "EMAIL": re.compile(r"[A-Za-z0-9._%+-]+(@|%40)[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
     "ID_NUM": re.compile(r"\b\d{8,12}\b"),
 }
 FORBIDDEN_KEYS = {"card.cvv"}

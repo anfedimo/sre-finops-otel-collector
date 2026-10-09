@@ -1,4 +1,4 @@
-.PHONY: up down restart validate validate-rules verify logs incident gate release rollback
+.PHONY: up down restart validate validate-rules verify test-pii logs incident gate release rollback
 
 COLLECTOR_IMAGE  := otel/opentelemetry-collector-contrib:0.162.0
 PROMETHEUS_IMAGE := prom/prometheus:v3.13.4
@@ -31,6 +31,9 @@ validate-rules:  ## Validación de reglas SLO con promtool
 
 verify:          ## Quality Gates de telemetría (PII, FinOps, SLO)
 	python3 scripts/verify.py
+
+test-pii: $(PY)  ## Regresión de las regex de PII contra la config del Collector (sin infraestructura)
+	$(PY) scripts/test_pii_redaction.py
 
 logs:
 	docker compose logs -f otel-gateway

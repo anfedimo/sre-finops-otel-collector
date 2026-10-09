@@ -1,0 +1,50 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  COLLECTOR_IMAGE: otel/opentelemetry-collector-contrib:0.162.0
+  PROMETHEUS_IMAGE: prom/prometheus:v3.13.4
+
+jobs:
+  pii-regression:
+    name: PII-REGEX-001 · regresión de enmascaramiento
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: pip install -q -r scripts/requirements.txt
+      - run: python scripts/test_pii_redaction.py
+
+  collector-config:
+    name: Configs del Collector contra el binario
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Gateway
+        run: |
+          docker run --rm -e PII_HASH_SALT=ci -e DT_OTLP_ENDPOINT=http://ci:4318 -e DT_API_TOKEN=ci \
+            -e OTEL_BACKEND_ENDPOINT=ci:4317 -v "$PWD/collector/otel-collector-config.yaml:/c.yaml:ro" \
+            "$COLLECTOR_IMAGE" validate --config=/c.yaml
+      - name: Collector de nodo (deploy/eks)
+        run: |
+          pip install -q pyyaml
+          python -c "import yaml; d=yaml.safe_load(open('deploy/eks/otel-node-collector.yaml')); yaml.safe_dump(d['spec']['config'], open('/tmp/node.yaml','w'))"
+          docker run --rm -v /tmp/node.yaml:/c.yaml:ro "$COLLECTOR_IMAGE" validate --config=/c.yaml
+
+  slo-rules:
+    name: Reglas SLO (promtool)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: |
+          docker run --rm --entrypoint promtool -v "$PWD/prometheus:/p:ro" \
+            "$PROMETHEUS_IMAGE" check rules /p/rules/slo-payments-qr.yaml

@@ -54,14 +54,15 @@ processors:
           # PCI-DSS req. 3.4: PAN truncado a últimos 4 ($$ = escape de interpolación)
           - replace_all_patterns(attributes, "value", "\\b\\d{4}[ -]?\\d{4}[ -]?\\d{4}[ -]?(\\d{4})\\b", "****-****-****-$$1")
           - replace_all_patterns(attributes, "value", "\\b3[47]\\d{2}[ -]?\\d{6}[ -]?(\\d{5})\\b", "****-******-$$1")
-          - replace_all_patterns(attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", "[EMAIL_REDACTADO]")
+          # Email literal o URL-encoded (%40): los agentes registran url.query codificado
+          - replace_all_patterns(attributes, "value", "[A-Za-z0-9._%+-]+(@|%40)[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", "[EMAIL_REDACTADO]")
           # Fail-closed: cuentas, cédulas y celulares. Excepciones vía PR a DevSecOps.
           - replace_all_patterns(attributes, "value", "\\b\\d{6,12}\\b", "[NUM_REDACTADO]")
           - replace_pattern(name, "\\b\\d{6,19}\\b", "{id}")
       - context: spanevent
         statements:
           - replace_all_patterns(attributes, "value", "\\b\\d{4}[ -]?\\d{4}[ -]?\\d{4}[ -]?(\\d{4})\\b", "****-****-****-$$1")
-          - replace_all_patterns(attributes, "value", "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", "[EMAIL_REDACTADO]")
+          - replace_all_patterns(attributes, "value", "[A-Za-z0-9._%+-]+(@|%40)[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", "[EMAIL_REDACTADO]")
           - replace_all_patterns(attributes, "value", "\\b\\d{6,12}\\b", "[NUM_REDACTADO]")
       - context: resource
         statements:
