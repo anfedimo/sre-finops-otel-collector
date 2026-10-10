@@ -296,6 +296,15 @@ class TempoMCP:
         traces = json.loads(raw).get("traces", [])
         return sorted(traces, key=lambda t: int(t.get("startTimeUnixNano", 0)), reverse=True)
 
+    async def search_recent(self, query: str, minutes: int) -> tuple[list[dict], int]:
+        """La búsqueda de Tempo devuelve un máximo de resultados sin orden garantizado: se amplía la ventana
+        de forma progresiva para que el primer resultado sea el incidente más reciente."""
+        for window in sorted({w for w in (5, 15, minutes) if w <= minutes}):
+            traces = await self.search(query, window)
+            if traces:
+                return traces, window
+        return [], minutes
+
     async def journey(self, trace_id: str) -> Journey:
         return parse_trace(trace_id, json.loads(await self.call("get-trace", {"trace_id": trace_id})))
 
@@ -500,8 +509,8 @@ async def run(args) -> int:
                     query = f'{{ span.{args.client_attr} = "{args.client_hash}" }}'
                 else:
                     query = '{ span.business.outcome = "failed" || status = error }'
-                traces = await mcp.search(query, args.window)
-                log(f"traceql-search {query} · últimos {args.window} min · {len(traces)} trazas")
+                traces, window = await mcp.search_recent(query, args.window)
+                log(f"traceql-search {query} · últimos {window} min (ventana máxima {args.window}) · {len(traces)} trazas")
                 if not traces:
                     print(f"Sin trazas que analizar en los últimos {args.window} min.")
                     return 1
