@@ -109,6 +109,9 @@ processors:
     send_batch_size: 1024
     timeout: 5s
 
+  # El connector count emite deltas por lote; Prometheus requiere contadores acumulados
+  deltatocumulative: {}
+
 connectors:
   # Fuente de verdad del Error Budget: se calcula sobre el 100% del tráfico, antes del muestreo
   span_metrics:
@@ -200,5 +203,5 @@ service:
       exporters: [count]
     metrics/logs:
       receivers: [count]
-      processors: [batch]
+      processors: [deltatocumulative, batch]
       exporters: [prometheus]

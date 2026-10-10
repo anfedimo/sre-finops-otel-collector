@@ -1,0 +1,85 @@
+# Tráfico sintético continuo para la demostración en EKS: mantiene vivos SLO, embudo de negocio,
+# Log-to-Metrics y trazas recientes para el agente de RCA (ventana de 60 min).
+# El resultado de cada pago lo decide la aplicación real (scoring de fraud-api, fondos, fallas del core);
+# el generador solo envía datos sintéticos, incluidos PAN y emails de prueba para evidenciar el enmascaramiento.
+#
+#   kubectl apply -f deploy/eks/demo-traffic-job.yaml
+#   kubectl -n pagos logs -f job/demo-traffic
+#   kubectl -n pagos delete job/demo-traffic          # detener
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-traffic
+  namespace: pagos
+  labels: { app.kubernetes.io/name: demo-traffic, app.kubernetes.io/part-of: sre-finops-toolkit }
+data:
+  traffic.py: |
+    import collections, json, os, random, time, urllib.error, urllib.parse, urllib.request
+
+    URL = os.environ["TARGET_URL"]
+    TPS = float(os.environ.get("TPS", "3"))
+    CHANNELS = ["app-movil", "web", "qr-comercio"]
+
+    def payment():
+        amount = random.choice([random.randint(5_000, 900_000)] * 49 + [random.randint(50_000_000, 80_000_000)])
+        body = {"amount": amount, "cardNumber": "4" + "".join(random.choices("0123456789", k=15)),
+                "channel": random.choice(CHANNELS)}
+        query = urllib.parse.urlencode({"account": "".join(random.choices("0123456789", k=10)),
+                                        "email": f"cliente{random.randint(1, 9999)}@bancoplus.test"})
+        req = urllib.request.Request(f"{URL}/payments/qr?{query}", data=json.dumps(body).encode(),
+                                     headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=10) as r:
+                return r.status, r.headers.get("X-Business-Outcome", "-")
+        except urllib.error.HTTPError as e:
+            return e.code, e.headers.get("X-Business-Outcome", "-")
+        except Exception:
+            return 0, "conexion"
+
+    stats, window_start = collections.Counter(), time.time()
+    while True:
+        started = time.time()
+        stats[payment()] += 1
+        if time.time() - window_start >= 60:
+            total = sum(stats.values())
+            print(json.dumps({"requests_min": total, "por_http_y_outcome": {f"{k[0]}/{k[1]}": v for k, v in sorted(stats.items())}}), flush=True)
+            stats, window_start = collections.Counter(), time.time()
+        time.sleep(max(0.0, 1 / TPS - (time.time() - started)))
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: demo-traffic
+  namespace: pagos
+  labels: { app.kubernetes.io/name: demo-traffic, app.kubernetes.io/part-of: sre-finops-toolkit }
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 216000   # 60 h: termina antes del TTL del entorno efímero
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: demo-traffic }
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: traffic
+          image: python:3.13-slim
+          command: ["python", "-u", "/scripts/traffic.py"]
+          env:
+            - { name: TARGET_URL, value: "http://payments-qr.pagos.svc.cluster.local" }
+            - { name: TPS, value: "3" }
+          resources:
+            requests: { cpu: 20m, memory: 32Mi }
+            limits: { memory: 128Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: scripts, mountPath: /scripts }
+      volumes:
+        - name: scripts
+          configMap: { name: demo-traffic }
