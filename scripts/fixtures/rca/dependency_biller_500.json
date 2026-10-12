@@ -1,0 +1,1151 @@
+{
+ "trace_id": "bc4429295b0c97497e61c07ab7676a52",
+ "trace": {
+  "resourceSpans": [
+   {
+    "resource": {
+     "attributes": [
+      {
+       "key": "host.arch",
+       "value": {
+        "stringValue": "aarch64"
+       }
+      },
+      {
+       "key": "host.name",
+       "value": {
+        "stringValue": "fraud-api-76df5df96d-vlmqt"
+       }
+      },
+      {
+       "key": "k8s.deployment.name",
+       "value": {
+        "stringValue": "fraud-api"
+       }
+      },
+      {
+       "key": "k8s.deployment.uid",
+       "value": {
+        "stringValue": "435e1e10-7bcd-4d73-bbd1-81049116a00d"
+       }
+      },
+      {
+       "key": "k8s.node.name",
+       "value": {
+        "stringValue": "ip-10-40-42-5.ec2.internal"
+       }
+      },
+      {
+       "key": "k8s.pod.uid",
+       "value": {
+        "stringValue": "d2d42bda-c6dd-46f5-b08a-0e66b276f53d"
+       }
+      },
+      {
+       "key": "k8s.replicaset.name",
+       "value": {
+        "stringValue": "fraud-api-76df5df96d"
+       }
+      },
+      {
+       "key": "k8s.replicaset.uid",
+       "value": {
+        "stringValue": "866ee5a9-a0ce-4253-9948-527f8af0197e"
+       }
+      },
+      {
+       "key": "migration.wave",
+       "value": {
+        "stringValue": "F1-piloto"
+       }
+      },
+      {
+       "key": "os.description",
+       "value": {
+        "stringValue": "Linux 6.12.110-135.202.amzn2023.aarch64"
+       }
+      },
+      {
+       "key": "os.type",
+       "value": {
+        "stringValue": "linux"
+       }
+      },
+      {
+       "key": "os.version",
+       "value": {
+        "stringValue": "6.12.110-135.202.amzn2023.aarch64"
+       }
+      },
+      {
+       "key": "process.command_args",
+       "value": {
+        "arrayValue": {
+         "values": [
+          {
+           "stringValue": "/opt/java/openjdk/bin/java"
+          },
+          {
+           "stringValue": "-XX:ActiveProcessorCount=2"
+          },
+          {
+           "stringValue": "-XX:MaxRAMPercentage=75"
+          },
+          {
+           "stringValue": "-jar"
+          },
+          {
+           "stringValue": "/app/app.jar"
+          }
+         ]
+        }
+       }
+      },
+      {
+       "key": "process.executable.path",
+       "value": {
+        "stringValue": "/opt/java/openjdk/bin/java"
+       }
+      },
+      {
+       "key": "process.pid",
+       "value": {
+        "intValue": "1"
+       }
+      },
+      {
+       "key": "process.runtime.description",
+       "value": {
+        "stringValue": "Eclipse Adoptium OpenJDK 64-Bit Server VM 21.0.12.1+1-LTS"
+       }
+      },
+      {
+       "key": "process.runtime.name",
+       "value": {
+        "stringValue": "OpenJDK Runtime Environment"
+       }
+      },
+      {
+       "key": "process.runtime.version",
+       "value": {
+        "stringValue": "21.0.12.1+1-LTS"
+       }
+      },
+      {
+       "key": "service.instance.id",
+       "value": {
+        "stringValue": "pagos.fraud-api-76df5df96d-vlmqt.fraud-api"
+       }
+      },
+      {
+       "key": "service.namespace",
+       "value": {
+        "stringValue": "pagos"
+       }
+      },
+      {
+       "key": "service.version",
+       "value": {
+        "stringValue": "e5cae435a41347bd5b93e5a5d2ee57d5b8c423f5"
+       }
+      },
+      {
+       "key": "team.tribe",
+       "value": {
+        "stringValue": "tribu-pagos"
+       }
+      },
+      {
+       "key": "telemetry.distro.name",
+       "value": {
+        "stringValue": "opentelemetry-java-instrumentation"
+       }
+      },
+      {
+       "key": "telemetry.distro.version",
+       "value": {
+        "stringValue": "2.32.0"
+       }
+      },
+      {
+       "key": "telemetry.sdk.language",
+       "value": {
+        "stringValue": "java"
+       }
+      },
+      {
+       "key": "telemetry.sdk.name",
+       "value": {
+        "stringValue": "opentelemetry"
+       }
+      },
+      {
+       "key": "telemetry.sdk.version",
+       "value": {
+        "stringValue": "1.66.0"
+       }
+      },
+      {
+       "key": "service.name",
+       "value": {
+        "stringValue": "fraud-api"
+       }
+      },
+      {
+       "key": "k8s.namespace.name",
+       "value": {
+        "stringValue": "pagos"
+       }
+      },
+      {
+       "key": "k8s.pod.name",
+       "value": {
+        "stringValue": "fraud-api-76df5df96d-vlmqt"
+       }
+      },
+      {
+       "key": "k8s.container.name",
+       "value": {
+        "stringValue": "fraud-api"
+       }
+      }
+     ]
+    },
+    "scopeSpans": [
+     {
+      "scope": {
+       "name": "io.opentelemetry.tomcat-10.0",
+       "version": "2.32.0-alpha"
+      },
+      "spans": [
+       {
+        "traceId": "vEQpKVsMl0l+YcB6t2dqUg==",
+        "spanId": "raBrM0XPNZ4=",
+        "parentSpanId": "8iDDheKpeyE=",
+        "name": "POST /risk/score",
+        "kind": "SPAN_KIND_SERVER",
+        "startTimeUnixNano": "1791806666021178894",
+        "endTimeUnixNano": "1791806666022399571",
+        "attributes": [
+         {
+          "key": "url.scheme",
+          "value": {
+           "stringValue": "http"
+          }
+         },
+         {
+          "key": "http.request.method",
+          "value": {
+           "stringValue": "POST"
+          }
+         },
+         {
+          "key": "url.path",
+          "value": {
+           "stringValue": "/risk/score"
+          }
+         },
+         {
+          "key": "server.address",
+          "value": {
+           "stringValue": "fraud-api"
+          }
+         },
+         {
+          "key": "client.address",
+          "value": {
+           "stringValue": "10.40.2.51"
+          }
+         },
+         {
+          "key": "user_agent.original",
+          "value": {
+           "stringValue": "Java-http-client/21.0.12.1"
+          }
+         },
+         {
+          "key": "thread.id",
+          "value": {
+           "intValue": "34"
+          }
+         },
+         {
+          "key": "thread.name",
+          "value": {
+           "stringValue": "http-nio-8080-exec-3"
+          }
+         },
+         {
+          "key": "http.route",
+          "value": {
+           "stringValue": "/risk/score"
+          }
+         },
+         {
+          "key": "network.protocol.version",
+          "value": {
+           "stringValue": "1.1"
+          }
+         },
+         {
+          "key": "network.peer.port",
+          "value": {
+           "intValue": "48810"
+          }
+         },
+         {
+          "key": "network.peer.address",
+          "value": {
+           "stringValue": "10.40.2.51"
+          }
+         },
+         {
+          "key": "http.response.status_code",
+          "value": {
+           "intValue": "200"
+          }
+         }
+        ],
+        "status": {}
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "resource": {
+     "attributes": [
+      {
+       "key": "host.arch",
+       "value": {
+        "stringValue": "aarch64"
+       }
+      },
+      {
+       "key": "host.name",
+       "value": {
+        "stringValue": "payments-qr-7d8665f6cb-hb4mf"
+       }
+      },
+      {
+       "key": "k8s.deployment.name",
+       "value": {
+        "stringValue": "payments-qr"
+       }
+      },
+      {
+       "key": "k8s.deployment.uid",
+       "value": {
+        "stringValue": "390343a1-bf4e-4d63-a8e7-ac422dd454b2"
+       }
+      },
+      {
+       "key": "k8s.node.name",
+       "value": {
+        "stringValue": "ip-10-40-25-198.ec2.internal"
+       }
+      },
+      {
+       "key": "k8s.pod.uid",
+       "value": {
+        "stringValue": "f9ce559e-a71d-45a0-8a2b-5c6d70e5434e"
+       }
+      },
+      {
+       "key": "k8s.replicaset.name",
+       "value": {
+        "stringValue": "payments-qr-7d8665f6cb"
+       }
+      },
+      {
+       "key": "k8s.replicaset.uid",
+       "value": {
+        "stringValue": "25b0848f-5114-4e65-b574-b4ced0b11d32"
+       }
+      },
+      {
+       "key": "migration.wave",
+       "value": {
+        "stringValue": "F1-piloto"
+       }
+      },
+      {
+       "key": "os.description",
+       "value": {
+        "stringValue": "Linux 6.12.110-135.202.amzn2023.aarch64"
+       }
+      },
+      {
+       "key": "os.type",
+       "value": {
+        "stringValue": "linux"
+       }
+      },
+      {
+       "key": "os.version",
+       "value": {
+        "stringValue": "6.12.110-135.202.amzn2023.aarch64"
+       }
+      },
+      {
+       "key": "process.command_args",
+       "value": {
+        "arrayValue": {
+         "values": [
+          {
+           "stringValue": "/opt/java/openjdk/bin/java"
+          },
+          {
+           "stringValue": "-XX:ActiveProcessorCount=2"
+          },
+          {
+           "stringValue": "-XX:MaxRAMPercentage=75"
+          },
+          {
+           "stringValue": "-jar"
+          },
+          {
+           "stringValue": "/app/app.jar"
+          }
+         ]
+        }
+       }
+      },
+      {
+       "key": "process.executable.path",
+       "value": {
+        "stringValue": "/opt/java/openjdk/bin/java"
+       }
+      },
+      {
+       "key": "process.pid",
+       "value": {
+        "intValue": "1"
+       }
+      },
+      {
+       "key": "process.runtime.description",
+       "value": {
+        "stringValue": "Eclipse Adoptium OpenJDK 64-Bit Server VM 21.0.12.1+1-LTS"
+       }
+      },
+      {
+       "key": "process.runtime.name",
+       "value": {
+        "stringValue": "OpenJDK Runtime Environment"
+       }
+      },
+      {
+       "key": "process.runtime.version",
+       "value": {
+        "stringValue": "21.0.12.1+1-LTS"
+       }
+      },
+      {
+       "key": "service.instance.id",
+       "value": {
+        "stringValue": "pagos.payments-qr-7d8665f6cb-hb4mf.payments-qr"
+       }
+      },
+      {
+       "key": "service.namespace",
+       "value": {
+        "stringValue": "pagos"
+       }
+      },
+      {
+       "key": "service.version",
+       "value": {
+        "stringValue": "e5cae435a41347bd5b93e5a5d2ee57d5b8c423f5"
+       }
+      },
+      {
+       "key": "team.tribe",
+       "value": {
+        "stringValue": "tribu-pagos"
+       }
+      },
+      {
+       "key": "telemetry.distro.name",
+       "value": {
+        "stringValue": "opentelemetry-java-instrumentation"
+       }
+      },
+      {
+       "key": "telemetry.distro.version",
+       "value": {
+        "stringValue": "2.32.0"
+       }
+      },
+      {
+       "key": "telemetry.sdk.language",
+       "value": {
+        "stringValue": "java"
+       }
+      },
+      {
+       "key": "telemetry.sdk.name",
+       "value": {
+        "stringValue": "opentelemetry"
+       }
+      },
+      {
+       "key": "telemetry.sdk.version",
+       "value": {
+        "stringValue": "1.66.0"
+       }
+      },
+      {
+       "key": "service.name",
+       "value": {
+        "stringValue": "payments-qr"
+       }
+      },
+      {
+       "key": "k8s.namespace.name",
+       "value": {
+        "stringValue": "pagos"
+       }
+      },
+      {
+       "key": "k8s.pod.name",
+       "value": {
+        "stringValue": "payments-qr-7d8665f6cb-hb4mf"
+       }
+      },
+      {
+       "key": "k8s.container.name",
+       "value": {
+        "stringValue": "payments-qr"
+       }
+      }
+     ]
+    },
+    "scopeSpans": [
+     {
+      "scope": {
+       "name": "io.opentelemetry.tomcat-10.0",
+       "version": "2.32.0-alpha"
+      },
+      "spans": [
+       {
+        "traceId": "vEQpKVsMl0l+YcB6t2dqUg==",
+        "spanId": "5DvU9ZAROsE=",
+        "name": "POST /payments/qr",
+        "kind": "SPAN_KIND_SERVER",
+        "startTimeUnixNano": "1791806666018613980",
+        "endTimeUnixNano": "1791806666033875266",
+        "attributes": [
+         {
+          "key": "url.scheme",
+          "value": {
+           "stringValue": "http"
+          }
+         },
+         {
+          "key": "server.port",
+          "value": {
+           "intValue": "18080"
+          }
+         },
+         {
+          "key": "http.request.method",
+          "value": {
+           "stringValue": "POST"
+          }
+         },
+         {
+          "key": "url.path",
+          "value": {
+           "stringValue": "/payments/qr"
+          }
+         },
+         {
+          "key": "server.address",
+          "value": {
+           "stringValue": "localhost"
+          }
+         },
+         {
+          "key": "client.address",
+          "value": {
+           "stringValue": "127.0.0.1"
+          }
+         },
+         {
+          "key": "user_agent.original",
+          "value": {
+           "stringValue": "curl/8.7.1"
+          }
+         },
+         {
+          "key": "thread.id",
+          "value": {
+           "intValue": "36"
+          }
+         },
+         {
+          "key": "thread.name",
+          "value": {
+           "stringValue": "http-nio-8080-exec-5"
+          }
+         },
+         {
+          "key": "http.route",
+          "value": {
+           "stringValue": "/payments/qr"
+          }
+         },
+         {
+          "key": "error.type",
+          "value": {
+           "stringValue": "502"
+          }
+         },
+         {
+          "key": "network.peer.address",
+          "value": {
+           "stringValue": "127.0.0.1"
+          }
+         },
+         {
+          "key": "http.response.status_code",
+          "value": {
+           "intValue": "502"
+          }
+         },
+         {
+          "key": "network.protocol.version",
+          "value": {
+           "stringValue": "1.1"
+          }
+         },
+         {
+          "key": "network.peer.port",
+          "value": {
+           "intValue": "54472"
+          }
+         },
+         {
+          "key": "business.operation",
+          "value": {
+           "stringValue": "pago_servicio_publico"
+          }
+         },
+         {
+          "key": "business.outcome",
+          "value": {
+           "stringValue": "failed"
+          }
+         },
+         {
+          "key": "business.reason",
+          "value": {
+           "stringValue": "CONVENIO_NO_DISPONIBLE"
+          }
+         },
+         {
+          "key": "business.transaction_id",
+          "value": {
+           "stringValue": "QR-MV57FBXF-OTEO"
+          }
+         },
+         {
+          "key": "payment.amount",
+          "value": {
+           "intValue": "220000"
+          }
+         },
+         {
+          "key": "business.biller",
+          "value": {
+           "stringValue": "ELECTROPLUS"
+          }
+         },
+         {
+          "key": "business.biller_name",
+          "value": {
+           "stringValue": "ElectroPlus S.A. E.S.P. (energia)"
+          }
+         },
+         {
+          "key": "customer.document",
+          "value": {
+           "stringValue": "7d2b37fa3265195c3c9b5babdda368ee4747efc16140eb3ba6f1f97638a1d726"
+          }
+         },
+         {
+          "key": "business.amount_band",
+          "value": {
+           "stringValue": "bajo"
+          }
+         }
+        ],
+        "status": {
+         "code": "STATUS_CODE_ERROR"
+        }
+       }
+      ]
+     },
+     {
+      "scope": {
+       "name": "io.opentelemetry.java-http-client",
+       "version": "2.32.0-alpha"
+      },
+      "spans": [
+       {
+        "traceId": "vEQpKVsMl0l+YcB6t2dqUg==",
+        "spanId": "8iDDheKpeyE=",
+        "parentSpanId": "5DvU9ZAROsE=",
+        "name": "POST",
+        "kind": "SPAN_KIND_CLIENT",
+        "startTimeUnixNano": "1791806666019715876",
+        "endTimeUnixNano": "1791806666023105124",
+        "attributes": [
+         {
+          "key": "url.full",
+          "value": {
+           "stringValue": "http://fraud-api/risk/score"
+          }
+         },
+         {
+          "key": "server.port",
+          "value": {
+           "intValue": "80"
+          }
+         },
+         {
+          "key": "http.request.method",
+          "value": {
+           "stringValue": "POST"
+          }
+         },
+         {
+          "key": "server.address",
+          "value": {
+           "stringValue": "fraud-api"
+          }
+         },
+         {
+          "key": "thread.id",
+          "value": {
+           "intValue": "36"
+          }
+         },
+         {
+          "key": "thread.name",
+          "value": {
+           "stringValue": "http-nio-8080-exec-5"
+          }
+         },
+         {
+          "key": "network.protocol.version",
+          "value": {
+           "stringValue": "1.1"
+          }
+         },
+         {
+          "key": "http.response.status_code",
+          "value": {
+           "intValue": "200"
+          }
+         }
+        ],
+        "status": {}
+       },
+       {
+        "traceId": "vEQpKVsMl0l+YcB6t2dqUg==",
+        "spanId": "C/P2x+ARoQs=",
+        "parentSpanId": "5DvU9ZAROsE=",
+        "name": "POST",
+        "kind": "SPAN_KIND_CLIENT",
+        "startTimeUnixNano": "1791806666023853292",
+        "endTimeUnixNano": "1791806666031945678",
+        "attributes": [
+         {
+          "key": "url.full",
+          "value": {
+           "stringValue": "http://convenios-api/billers/ELECTROPLUS/payments"
+          }
+         },
+         {
+          "key": "server.port",
+          "value": {
+           "intValue": "80"
+          }
+         },
+         {
+          "key": "http.request.method",
+          "value": {
+           "stringValue": "POST"
+          }
+         },
+         {
+          "key": "server.address",
+          "value": {
+           "stringValue": "convenios-api"
+          }
+         },
+         {
+          "key": "thread.id",
+          "value": {
+           "intValue": "36"
+          }
+         },
+         {
+          "key": "thread.name",
+          "value": {
+           "stringValue": "http-nio-8080-exec-5"
+          }
+         },
+         {
+          "key": "network.protocol.version",
+          "value": {
+           "stringValue": "1.1"
+          }
+         },
+         {
+          "key": "error.type",
+          "value": {
+           "stringValue": "500"
+          }
+         },
+         {
+          "key": "http.response.status_code",
+          "value": {
+           "intValue": "500"
+          }
+         }
+        ],
+        "status": {
+         "code": "STATUS_CODE_ERROR"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "resource": {
+     "attributes": [
+      {
+       "key": "host.arch",
+       "value": {
+        "stringValue": "aarch64"
+       }
+      },
+      {
+       "key": "host.name",
+       "value": {
+        "stringValue": "convenios-api-5fb58d78bb-hfv9p"
+       }
+      },
+      {
+       "key": "k8s.deployment.name",
+       "value": {
+        "stringValue": "convenios-api"
+       }
+      },
+      {
+       "key": "k8s.deployment.uid",
+       "value": {
+        "stringValue": "5db9addb-d8c7-46dc-8080-8ee9d66f3e03"
+       }
+      },
+      {
+       "key": "k8s.node.name",
+       "value": {
+        "stringValue": "ip-10-40-42-5.ec2.internal"
+       }
+      },
+      {
+       "key": "k8s.pod.uid",
+       "value": {
+        "stringValue": "3062fc75-68b6-4aeb-a25a-6223516626b0"
+       }
+      },
+      {
+       "key": "k8s.replicaset.name",
+       "value": {
+        "stringValue": "convenios-api-5fb58d78bb"
+       }
+      },
+      {
+       "key": "k8s.replicaset.uid",
+       "value": {
+        "stringValue": "61f6fbf8-16b3-4179-b4d8-0fd27928659d"
+       }
+      },
+      {
+       "key": "migration.wave",
+       "value": {
+        "stringValue": "F1-piloto"
+       }
+      },
+      {
+       "key": "os.description",
+       "value": {
+        "stringValue": "Linux 6.12.110-135.202.amzn2023.aarch64"
+       }
+      },
+      {
+       "key": "os.type",
+       "value": {
+        "stringValue": "linux"
+       }
+      },
+      {
+       "key": "os.version",
+       "value": {
+        "stringValue": "6.12.110-135.202.amzn2023.aarch64"
+       }
+      },
+      {
+       "key": "process.command_args",
+       "value": {
+        "arrayValue": {
+         "values": [
+          {
+           "stringValue": "/opt/java/openjdk/bin/java"
+          },
+          {
+           "stringValue": "-XX:ActiveProcessorCount=2"
+          },
+          {
+           "stringValue": "-XX:MaxRAMPercentage=75"
+          },
+          {
+           "stringValue": "-jar"
+          },
+          {
+           "stringValue": "/app/app.jar"
+          }
+         ]
+        }
+       }
+      },
+      {
+       "key": "process.executable.path",
+       "value": {
+        "stringValue": "/opt/java/openjdk/bin/java"
+       }
+      },
+      {
+       "key": "process.pid",
+       "value": {
+        "intValue": "1"
+       }
+      },
+      {
+       "key": "process.runtime.description",
+       "value": {
+        "stringValue": "Eclipse Adoptium OpenJDK 64-Bit Server VM 21.0.12.1+1-LTS"
+       }
+      },
+      {
+       "key": "process.runtime.name",
+       "value": {
+        "stringValue": "OpenJDK Runtime Environment"
+       }
+      },
+      {
+       "key": "process.runtime.version",
+       "value": {
+        "stringValue": "21.0.12.1+1-LTS"
+       }
+      },
+      {
+       "key": "service.instance.id",
+       "value": {
+        "stringValue": "pagos.convenios-api-5fb58d78bb-hfv9p.convenios-api"
+       }
+      },
+      {
+       "key": "service.namespace",
+       "value": {
+        "stringValue": "pagos"
+       }
+      },
+      {
+       "key": "service.version",
+       "value": {
+        "stringValue": "e5cae435a41347bd5b93e5a5d2ee57d5b8c423f5"
+       }
+      },
+      {
+       "key": "team.tribe",
+       "value": {
+        "stringValue": "tribu-pagos"
+       }
+      },
+      {
+       "key": "telemetry.distro.name",
+       "value": {
+        "stringValue": "opentelemetry-java-instrumentation"
+       }
+      },
+      {
+       "key": "telemetry.distro.version",
+       "value": {
+        "stringValue": "2.32.0"
+       }
+      },
+      {
+       "key": "telemetry.sdk.language",
+       "value": {
+        "stringValue": "java"
+       }
+      },
+      {
+       "key": "telemetry.sdk.name",
+       "value": {
+        "stringValue": "opentelemetry"
+       }
+      },
+      {
+       "key": "telemetry.sdk.version",
+       "value": {
+        "stringValue": "1.66.0"
+       }
+      },
+      {
+       "key": "service.name",
+       "value": {
+        "stringValue": "convenios-api"
+       }
+      },
+      {
+       "key": "k8s.namespace.name",
+       "value": {
+        "stringValue": "pagos"
+       }
+      },
+      {
+       "key": "k8s.pod.name",
+       "value": {
+        "stringValue": "convenios-api-5fb58d78bb-hfv9p"
+       }
+      },
+      {
+       "key": "k8s.container.name",
+       "value": {
+        "stringValue": "convenios-api"
+       }
+      }
+     ]
+    },
+    "scopeSpans": [
+     {
+      "scope": {
+       "name": "io.opentelemetry.tomcat-10.0",
+       "version": "2.32.0-alpha"
+      },
+      "spans": [
+       {
+        "traceId": "vEQpKVsMl0l+YcB6t2dqUg==",
+        "spanId": "AUdoFwL6k2w=",
+        "parentSpanId": "C/P2x+ARoQs=",
+        "name": "POST /billers/{code}/payments",
+        "kind": "SPAN_KIND_SERVER",
+        "startTimeUnixNano": "1791806666027988060",
+        "endTimeUnixNano": "1791806666031685216",
+        "attributes": [
+         {
+          "key": "url.scheme",
+          "value": {
+           "stringValue": "http"
+          }
+         },
+         {
+          "key": "http.request.method",
+          "value": {
+           "stringValue": "POST"
+          }
+         },
+         {
+          "key": "url.path",
+          "value": {
+           "stringValue": "/billers/ELECTROPLUS/payments"
+          }
+         },
+         {
+          "key": "server.address",
+          "value": {
+           "stringValue": "convenios-api"
+          }
+         },
+         {
+          "key": "client.address",
+          "value": {
+           "stringValue": "10.40.2.51"
+          }
+         },
+         {
+          "key": "user_agent.original",
+          "value": {
+           "stringValue": "Java-http-client/21.0.12.1"
+          }
+         },
+         {
+          "key": "thread.id",
+          "value": {
+           "intValue": "39"
+          }
+         },
+         {
+          "key": "thread.name",
+          "value": {
+           "stringValue": "http-nio-8080-exec-8"
+          }
+         },
+         {
+          "key": "http.route",
+          "value": {
+           "stringValue": "/billers/{code}/payments"
+          }
+         },
+         {
+          "key": "network.protocol.version",
+          "value": {
+           "stringValue": "1.1"
+          }
+         },
+         {
+          "key": "network.peer.port",
+          "value": {
+           "intValue": "57802"
+          }
+         },
+         {
+          "key": "error.type",
+          "value": {
+           "stringValue": "500"
+          }
+         },
+         {
+          "key": "network.peer.address",
+          "value": {
+           "stringValue": "10.40.2.51"
+          }
+         },
+         {
+          "key": "http.response.status_code",
+          "value": {
+           "intValue": "500"
+          }
+         }
+        ],
+        "status": {
+         "code": "STATUS_CODE_ERROR"
+        }
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "metrics": {
+  "inspectedBytes": "513550"
+ }
+}
