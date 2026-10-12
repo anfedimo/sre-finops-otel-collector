@@ -502,7 +502,9 @@ def render(j: Journey, v: Verdict, rules: Verdict, server: str, discrepancy: str
         bar_len = max(1, int(s.duration_ms / total * width))
         bar = " " * bar_start + "█" * min(bar_len, width - bar_start)
         flag = " ✖" if s.status_code == "ERROR" else ""
-        lines.append(f"  +{offset:6.1f} ms  {'  ' * d}{s.service} · {s.kind} {s.name}".ljust(60)
+        label = f"{s.service} · {s.kind} {s.name}"
+        label = label if len(label) <= 52 - 2 * d else label[:49 - 2 * d] + "…"
+        lines.append(f"  +{offset:6.1f} ms  {'  ' * d}{label}".ljust(66)
                      + f"{s.duration_ms:7.1f} ms |{bar.ljust(width)}|{flag}")
         for e in s.events:
             if e["name"] == "exception":

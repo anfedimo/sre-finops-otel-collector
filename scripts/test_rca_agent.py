@@ -50,6 +50,19 @@ check(v.clasificacion == "FALLA_TECNICA" and v.consume_error_budget and "AS400" 
       "excepción del core → falla técnica, CONSUME budget, dependencia AS400")
 check(j.services == ["payments-qr", "fraud-api"], "journey: payments-qr → fraud-api en orden cronológico")
 
+# Dependencia externa: pago de servicio público con la entidad de recaudo caída (traza real de EKS)
+j = journey("dependency_biller_500")
+v = agent.classify(j)
+check(v.clasificacion == "FALLA_TECNICA" and v.consume_error_budget and v.componente_culpable.startswith("convenios-api"),
+      "entidad de recaudo con HTTP 500 → falla técnica de dependencia, CONSUME, culpable convenios-api")
+check("no corresponde rollback" in v.recomendacion and j.root.attrs.get("business.transaction_id", "") in v.recomendacion,
+      "recomendación: escalar a la entidad con el código de transacción, sin rollback")
+check(j.services == ["payments-qr", "fraud-api", "convenios-api"], "journey: payments-qr → fraud-api → convenios-api")
+ctx_dep = json.dumps(agent.llm_context(j), ensure_ascii=False)
+check('"monto": "220.000 COP"' in ctx_dep and "customer.document" not in ctx_dep and agent.pii_findings(ctx_dep) == [],
+      "contexto al modelo: monto formateado, sin seudónimo del cliente y sin PII")
+check(len(j.root.attrs.get("customer.document", "")) == 64, "documento del cliente seudonimizado en el borde (SHA-256)")
+
 # Latencia: misma traza exitosa, raíz por encima del umbral
 slow = copy.deepcopy(journey("declined_as_5xx"))
 slow.root.attrs = {k: v for k, v in slow.root.attrs.items() if not k.startswith("business.")}

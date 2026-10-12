@@ -21,6 +21,7 @@ kubectl --context "$CTX" -n pagos port-forward svc/payments-qr "$APP_PORT:80" >/
 PF_APP=$!
 kubectl --context "$CTX" -n observability port-forward svc/tempo "$TEMPO_PORT:3200" >/dev/null 2>&1 &
 PF_TEMPO=$!
+disown "$PF_APP" "$PF_TEMPO"   # sin avisos de job control al cerrar los port-forwards
 trap 'kill $PF_APP $PF_TEMPO 2>/dev/null; rm -rf "$TMP"' EXIT
 sleep 4
 
