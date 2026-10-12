@@ -149,7 +149,7 @@ Normalización en el Gateway (antes de `span_metrics`, por lo que el SLI ya refl
 | **F0 · Fundación** | Meses 0–2 | Gateway por cuenta/VPC con PII, semántica de negocio, sampling y Dual-Shipping; backend OTel; módulos IaC; allow-list de atributos en Dynatrace | Gateway entrega a ambos destinos sin pérdida; `PII-001` y `BIZ-001` en PASS |
 | **F1 · Piloto** | Meses 2–4 | 1–2 aplicaciones no críticas: OneAgent → agente OTel; comparación lado a lado en ambos backends | Paridad de trazas ≥ 95%; sobrecosto de latencia < 3%; rollback a OneAgent ejecutado y probado |
 | **F2 · Olas por criticidad** | Meses 4–10 | Olas de 5–10 aplicaciones, de menor a mayor criticidad; SLO, alertas y dashboards como código; pruebas de caos por ola | Cada ola con SLO y alertas por burn rate equivalentes o superiores a las de Dynatrace |
-| **F3 · Cutover** | Meses 10–12 | Retiro de `otlp_http/dynatrace` del Gateway (lectura histórica primero); cierre de licencia antes del vencimiento | Cero aplicaciones con OneAgent; ningún dashboard crítico depende de Dynatrace |
+| **F3 · Cutover** | Meses 10–12 | Retiro de `otlp_http/apm-legacy` del Gateway (lectura histórica primero); cierre de licencia antes del vencimiento | Cero aplicaciones con OneAgent; ningún dashboard crítico depende de Dynatrace |
 
 Ninguna fase requiere cambios en el código de las aplicaciones; por eso el plan admite compresión (p. ej.,
 F1 y F2 en 3 meses) si el negocio adelanta el cutover.
@@ -311,5 +311,5 @@ Runner self-hosted:
 ## Cutover (F3)
 
 1. Paridad de trazas ≥ 95% entre `apm-legacy` y `otel-backend` durante 30 días.
-2. Retirar `otlp_http/dynatrace` de `service.pipelines.traces/export.exporters`.
+2. Retirar `otlp_http/apm-legacy` de `service.pipelines.traces/export.exporters`.
 3. `make validate && make restart`; cerrar licencia.
