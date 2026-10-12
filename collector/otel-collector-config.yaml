@@ -150,8 +150,8 @@ connectors:
 
 exporters:
   # Dual-Shipping durante la ventana de transición: APM legado (Dynatrace, ingesta OTLP/HTTP)
-  # y backend OTel agnóstico. Cutover (F3) = retirar otlp_http/dynatrace del pipeline.
-  otlp_http/dynatrace:
+  # y backend OTel agnóstico. Cutover (F3) = retirar otlp_http/apm-legacy del pipeline.
+  otlp_http/apm-legacy:
     endpoint: ${env:DT_OTLP_ENDPOINT}
     headers:
       Authorization: "Api-Token ${env:DT_API_TOKEN}"
@@ -198,7 +198,7 @@ service:
     traces/export:
       receivers: [forward/sampling]
       processors: [tail_sampling, batch]
-      exporters: [otlp_http/dynatrace, otlp_grpc/backend-otel]
+      exporters: [otlp_http/apm-legacy, otlp_grpc/backend-otel]
     metrics/red:
       receivers: [span_metrics]
       processors: [batch]
