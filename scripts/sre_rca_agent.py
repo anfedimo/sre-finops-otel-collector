@@ -19,6 +19,7 @@ Guardrails:
 Uso:
   scripts/sre_rca_agent.py                         # falla más reciente de los últimos 60 min
   scripts/sre_rca_agent.py --trace-id <id>
+  scripts/sre_rca_agent.py --transaction-id QR-MGN4K2PA-ZXQA
   scripts/sre_rca_agent.py --last-incident --window 180
   scripts/sre_rca_agent.py --client-hash <sha256> [--client-attr account.number]
   scripts/sre_rca_agent.py --query '{ span.business.status_reclassified = "declined_as_5xx" }' --window 240
@@ -65,8 +66,9 @@ PII_PATTERNS = {
 SPAN_ATTRS_FOR_LLM = (
     "http.route", "http.request.method", "http.response.status_code", "url.path", "url.query", "server.address",
     "business.operation", "business.outcome", "business.reason", "business.status_reclassified",
-    "business.amount_band", "payment.channel",
+    "business.amount_band", "payment.channel", "business.transaction_id", "business.biller", "business.biller_name",
 )
+# Fuera del contexto del modelo: customer.document (seudónimo) e IPs. payment.amount viaja formateado (p. ej. "220.000 COP")
 
 SYSTEM_PROMPT = """Eres el agente de RCA de la Plataforma de Confiabilidad de Banco Plus. Analizas una transacción
 de pago QR a partir de trazas OpenTelemetry ya sanitizadas en el Gateway (sin PAN, emails ni cédulas).
@@ -78,6 +80,8 @@ Reglas de interpretación (obligatorias):
 - business.status_reclassified = "failed_as_2xx": HTTP 200 con business.outcome=failed (p. ej. ERROR_SISTEMA). Es una
   falla técnica oculta: el cliente no pudo pagar. CONSUME Error Budget y degrada el SLO de disponibilidad.
 - Span de servidor con estado ERROR y evento de excepción sin business.outcome: falla técnica no controlada. CONSUME.
+- business.outcome=failed con HTTP 5xx y un span descendiente con error (p. ej. convenios-api con HTTP 500): falla de una
+  dependencia o entidad externa (business.biller_name). CONSUME. El culpable es el span descendiente, no el servicio raíz.
 - Duración del span raíz > 800 ms: consume el budget del SLO de latencia aunque el pago termine bien.
 - Identifica el componente culpable con la evidencia de los spans (servicio, span, latencia, excepción).
 - Cita la evidencia (span y atributo) de cada conclusión. Si un dato no está en la traza, dilo; no lo inventes.
@@ -212,7 +216,24 @@ def classify(j: Journey) -> Verdict:
             "(p. ej. 200/422 con X-Business-Outcome=declined), no como HTTP 500.",
             "rules", evidence)
 
-    if reclassified == "failed_as_2xx" or outcome == "failed":
+    if outcome == "failed" and reclassified != "failed_as_2xx":
+        # Falla visible (5xx) causada por una dependencia: el culpable es el span más profundo con error
+        entity = a.get("business.biller_name") or culprit.service
+        txn = a.get("business.transaction_id", "sin código")
+        dep_http = culprit.attrs.get("http.response.status_code", "?")
+        if culprit is not root:
+            evidence.append(f"{culprit.service} · {culprit.kind} {culprit.name} · HTTP {dep_http} · status {culprit.status_code}")
+        return Verdict(
+            "FALLA_TECNICA", True, f"{culprit.service} / {culprit.name}",
+            f"El pago falló por indisponibilidad de una dependencia: {culprit.service} respondió HTTP {dep_http} "
+            f"({entity}). {root.service} devolvió HTTP {http} con business.outcome=failed ({reason}). El cliente no pudo "
+            "pagar y el evento consume Error Budget de disponibilidad.",
+            f"Escalar a la integración de convenios y a la entidad {entity}. Activar circuit breaker o mensaje de "
+            f"indisponibilidad para ese convenio y notificar al cliente con el código {txn}. No es una falla del core "
+            f"ni de {root.service}: no corresponde rollback.",
+            "rules", evidence)
+
+    if reclassified == "failed_as_2xx":
         return Verdict(
             "FALLA_TECNICA_OCULTA", True, f"{root.service} / {root.name}",
             f"Falla técnica oculta: el backend respondió HTTP {http} pero business.outcome=failed ({reason}). El cliente "
@@ -338,6 +359,7 @@ def llm_context(j: Journey) -> dict:
         "tribu": j.root.resource.get("team.tribe"),
         "version": j.root.resource.get("service.version"),
         "slo": {"disponibilidad_pct": AVAILABILITY_SLO, "latencia_umbral_ms": LATENCY_THRESHOLD_MS},
+        "monto": format_amount(j.root.attrs.get("payment.amount")),
         "spans": [{
             "servicio": s.service, "span": s.name, "tipo": s.kind,
             "inicio_ms": round((s.start_ns - t0) / 1e6, 1), "duracion_ms": round(s.duration_ms, 1),
@@ -347,6 +369,14 @@ def llm_context(j: Journey) -> dict:
                             for e in s.events if e["name"] == "exception"],
         } for s in j.spans],
     }
+
+
+def format_amount(value) -> str | None:
+    """220000 → "220.000 COP": legible y sin secuencias numéricas que el guardrail de PII confunda con cuentas."""
+    try:
+        return f"{int(value):,} COP".replace(",", ".")
+    except (TypeError, ValueError):
+        return None
 
 
 def pii_findings(text: str) -> list[str]:
@@ -416,6 +446,27 @@ def log(message: str) -> None:
     print(f"[SRE-RCA-001] {message}", file=sys.stderr)
 
 
+def _entity(a: dict) -> str:
+    if a.get("business.biller_name"):
+        return f"{a['business.biller_name']} · convenio {a.get('business.biller', '?')}"
+    return "no aplica (pago QR a comercio)" if a.get("business.operation") == "pago_qr" else "no disponible en la traza"
+
+
+def _amount(a: dict) -> str:
+    amount = format_amount(a.get("payment.amount"))
+    band = a.get("business.amount_band")
+    if amount:
+        return f"${amount}" + (f" · banda {band}" if band else "")
+    return f"banda {band}" if band else "no disponible en la traza"
+
+
+def _customer(a: dict) -> str:
+    doc = a.get("customer.document")
+    if not doc:
+        return "identificador no emitido por el servicio"
+    return f"seudónimo SHA-256 {doc[:8]}…{doc[-4:]} (identidad resoluble solo en el CRM con el código de transacción)"
+
+
 def render(j: Journey, v: Verdict, rules: Verdict, server: str, discrepancy: str | None) -> str:
     a = j.root.attrs
     t0 = j.root.start_ns
@@ -431,8 +482,12 @@ def render(j: Journey, v: Verdict, rules: Verdict, server: str, discrepancy: str
         f"  Operación        {a.get('business.operation', 'no disponible en la traza')}",
         f"  Resultado        {a.get('business.outcome', 'sin business.outcome')} · motivo {a.get('business.reason', '—')}",
         f"  Respuesta HTTP   {a.get('http.response.status_code', '—')} · estado normalizado {j.root.status_code}",
-        f"  Canal / monto    {a.get('payment.channel', 'no disponible en la traza')} / "
-        f"{a.get('business.amount_band', 'no disponible en la traza')}",
+        f"  Transacción      {a.get('business.transaction_id', 'no disponible en la traza')}",
+        f"  Fecha y hora     {dt.datetime.fromtimestamp(t0 / 1e9, dt.timezone(dt.timedelta(hours=-5))):%Y-%m-%d %H:%M:%S} (hora Colombia)",
+        f"  Entidad destino  {_entity(a)}",
+        f"  Monto            {_amount(a)}",
+        f"  Cliente          {_customer(a)}",
+        f"  Canal            {a.get('payment.channel', 'no disponible en la traza')}",
         f"  Duración total   {j.root.duration_ms:.1f} ms · servicios {' → '.join(j.services)}",
         f"  Tribu · versión  {j.root.resource.get('team.tribe', '—')} · {j.root.resource.get('service.version', '—')[:12]}",
         "",
@@ -505,6 +560,8 @@ async def run(args) -> int:
             else:
                 if args.query:
                     query = args.query
+                elif args.transaction_id:
+                    query = f'{{ span.business.transaction_id = "{args.transaction_id}" }}'
                 elif args.client_hash:
                     query = f'{{ span.{args.client_attr} = "{args.client_hash}" }}'
                 else:
@@ -565,6 +622,7 @@ def main() -> int:
     target.add_argument("--client-hash", help="hash SHA-256 del cliente (atributo hasheado en el Gateway)")
     target.add_argument("--last-incident", action="store_true", help="falla más reciente de la ventana (por defecto)")
     target.add_argument("--query", help="consulta TraceQL propia; se analiza la traza más reciente que coincida")
+    target.add_argument("--transaction-id", help="código de transacción de negocio (business.transaction_id)")
     p.add_argument("--client-attr", default="account.number", help="atributo hasheado para --client-hash")
     p.add_argument("--window", type=int, default=60, help="ventana de búsqueda en minutos (defecto 60)")
     p.add_argument("--mcp-url", default=os.environ.get("TEMPO_MCP_URL", "http://localhost:3200/api/mcp"))

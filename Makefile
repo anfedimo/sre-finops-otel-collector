@@ -1,4 +1,4 @@
-.PHONY: up down restart validate validate-rules verify test-pii test-rca rca logs incident gate release rollback
+.PHONY: up down restart validate validate-rules verify test-pii test-rca rca demo-pago logs incident gate release rollback
 
 COLLECTOR_IMAGE  := otel/opentelemetry-collector-contrib:0.162.0
 PROMETHEUS_IMAGE := prom/prometheus:v3.13.4
@@ -40,6 +40,9 @@ test-rca: $(PY)  ## Regresión del agente de RCA sobre trazas reales congeladas 
 
 rca: $(PY)       ## Informe RCA de la falla más reciente vía MCP (requiere port-forward a svc/tempo)
 	$(PY) scripts/sre_rca_agent.py $(RCA_ARGS)
+
+demo-pago: $(PY) ## Demo: pago de servicio público que falla en la entidad y su diagnóstico RCA (EKS)
+	scripts/demo_pago_servicio.sh
 
 logs:
 	docker compose logs -f otel-gateway
