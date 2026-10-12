@@ -50,7 +50,7 @@
         { "name": "OTEL_PROPAGATORS", "value": "tracecontext,baggage,b3multi" },
         { "name": "OTEL_TRACES_SAMPLER", "value": "parentbased_always_on" },
         { "name": "OTEL_RESOURCE_ATTRIBUTES", "value": "service.namespace=pluspay,team.tribe=tribu-pagos,service.version=1.4.2" },
-        { "name": "OTEL_INSTRUMENTATION_HTTP_SERVER_CAPTURE_RESPONSE_HEADERS", "value": "X-Business-Operation,X-Business-Outcome,X-Business-Reason" }
+        { "name": "OTEL_INSTRUMENTATION_HTTP_SERVER_CAPTURE_RESPONSE_HEADERS", "value": "X-Business-Operation,X-Business-Outcome,X-Business-Reason,X-Business-Transaction-Id,X-Business-Amount,X-Business-Biller,X-Business-Biller-Name,X-Business-Customer" }
       ],
       "portMappings": [{ "containerPort": 8080, "protocol": "tcp" }]
     }

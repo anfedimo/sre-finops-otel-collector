@@ -29,7 +29,7 @@ spec:
     env:
       # Contrato de semántica de negocio (ver README · Semántica de negocio)
       - name: OTEL_INSTRUMENTATION_HTTP_SERVER_CAPTURE_RESPONSE_HEADERS
-        value: X-Business-Operation,X-Business-Outcome,X-Business-Reason
+        value: X-Business-Operation,X-Business-Outcome,X-Business-Reason,X-Business-Transaction-Id,X-Business-Amount,X-Business-Biller,X-Business-Biller-Name,X-Business-Customer
       - name: OTEL_RESOURCE_ATTRIBUTES
         value: service.namespace=pluspay,team.tribe=tribu-pagos
       - name: OTEL_LOGS_EXPORTER

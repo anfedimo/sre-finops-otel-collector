@@ -26,6 +26,12 @@ processors:
           - set(attributes["business.operation"], attributes["http.response.header.x-business-operation"][0]) where attributes["http.response.header.x-business-operation"] != nil
           - set(attributes["business.outcome"], attributes["http.response.header.x-business-outcome"][0]) where attributes["http.response.header.x-business-outcome"] != nil
           - set(attributes["business.reason"], attributes["http.response.header.x-business-reason"][0]) where attributes["http.response.header.x-business-reason"] != nil
+          # Contexto transaccional: código, monto (numérico, antes de la regla de PII), entidad y documento (lo hashea transform/pii)
+          - set(attributes["business.transaction_id"], attributes["http.response.header.x-business-transaction-id"][0]) where attributes["http.response.header.x-business-transaction-id"] != nil
+          - set(attributes["payment.amount"], Int(attributes["http.response.header.x-business-amount"][0])) where attributes["http.response.header.x-business-amount"] != nil
+          - set(attributes["business.biller"], attributes["http.response.header.x-business-biller"][0]) where attributes["http.response.header.x-business-biller"] != nil
+          - set(attributes["business.biller_name"], attributes["http.response.header.x-business-biller-name"][0]) where attributes["http.response.header.x-business-biller-name"] != nil
+          - set(attributes["customer.document"], attributes["http.response.header.x-business-customer"][0]) where attributes["http.response.header.x-business-customer"] != nil
           - delete_matching_keys(attributes, "^http\\.response\\.header\\.x-business-.*")
           # Rechazo de negocio expuesto como 5xx: no consume Error Budget ni dispara alertas
           - set(attributes["business.status_reclassified"], "declined_as_5xx") where attributes["business.outcome"] == "declined" and status.code == STATUS_CODE_ERROR
