@@ -39,6 +39,31 @@ done
 echo "   respuesta al cliente: $(cat "$TMP/body")"
 [[ "$reason" == "CONVENIO_NO_DISPONIBLE" ]] || { echo "No se reprodujo la caída del convenio" >&2; exit 1; }
 
+# Enlaces a la misma transacción en Grafana (Tempo) y en el APM legado, con la búsqueda ya armada
+print_console_links() {
+  local grafana jaeger
+  grafana=$(kubectl --context "$CTX" -n observability get svc kube-prometheus-stack-grafana \
+    -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
+  jaeger=$(kubectl --context "$CTX" -n observability get svc apm-legacy-standin \
+    -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
+  [[ -n "$grafana" && -n "$jaeger" ]] || return 0
+  python3 - "$1" "$grafana" "$jaeger" <<'PY'
+import json, sys
+from urllib.parse import quote
+
+txn, grafana, jaeger = sys.argv[1:]
+traceql = f'{{ span.business.transaction_id = "{txn}" }}'
+panes = {"a": {"datasource": "tempo", "range": {"from": "now-1h", "to": "now"},
+               "queries": [{"refId": "A", "datasource": {"type": "tempo", "uid": "tempo"},
+                            "queryType": "traceql", "query": traceql}]}}
+print()
+print("== 3. La misma transacción en las consolas")
+print(f"   Grafana (Tempo):     http://{grafana}/explore?schemaVersion=1&orgId=1&panes={quote(json.dumps(panes, separators=(',', ':')))}")
+print(f"   Jaeger (APM legado): http://{jaeger}:16686/search?service=payments-qr&lookback=1h&limit=20"
+      f"&tags={quote(json.dumps({'business.transaction_id': txn}))}")
+PY
+}
+
 echo
 echo "== 2. Diagnóstico del agente de RCA (Tempo vía MCP, solo lectura)"
 echo "   esperando la decisión de tail sampling y la exportación de la traza..."
@@ -46,6 +71,7 @@ for _ in $(seq 1 12); do
   if TEMPO_MCP_URL="http://localhost:$TEMPO_PORT/api/mcp" "$PY" "$DIR/scripts/sre_rca_agent.py" \
        --transaction-id "$txn" --window 15 >"$TMP/rca" 2>"$TMP/rca.log"; then
     cat "$TMP/rca"
+    print_console_links "$txn"
     exit 0
   fi
   sleep 5
