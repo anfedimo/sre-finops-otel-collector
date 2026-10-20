@@ -24,7 +24,7 @@
       "secrets": [
         {
           "name": "OTEL_COLLECTOR_CONFIG",
-          "valueFrom": "arn:aws:ssm:<REGION>:<ACCOUNT_ID>:parameter/observability/otel/fargate-task-collector"
+          "valueFrom": "arn:aws:ssm:<REGION>:<ACCOUNT_ID>:parameter/observability/otel/ecs-task-collector"
         }
       ],
       "healthCheck": {

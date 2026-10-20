@@ -19,7 +19,7 @@ from datetime import datetime, timedelta, timezone
 
 PROM = os.getenv("PROM_URL", "http://localhost:9090")
 BACKENDS = {
-    "dynatrace": os.getenv("APM_LEGACY_URL", "http://localhost:16686"),
+    "apm-legacy": os.getenv("APM_LEGACY_URL", "http://localhost:16686"),
     "otel-backend": os.getenv("OTEL_BACKEND_URL", "http://localhost:16687"),
 }
 SERVICE = "payments-qr"
