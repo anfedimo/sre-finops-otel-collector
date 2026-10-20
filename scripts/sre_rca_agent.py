@@ -535,24 +535,29 @@ def render(j: Journey, v: Verdict, rules: Verdict, server: str, discrepancy: str
 
 
 # --------------------------------------------------------------------------------------------- orquestación
-def reachable(url: str) -> bool:
+def reachable(url: str) -> str | None:
+    """None si Tempo responde; si no, el motivo. Se sondea /ready y no el endpoint MCP, que abre un stream SSE."""
     import httpx
 
-    # Solo un fallo de conexión cuenta: el GET puede abrir un stream SSE que no responde (ReadTimeout = alcanzable)
+    ready = url.split("/api/", 1)[0] + "/ready"
     try:
-        httpx.get(url, timeout=3)
+        httpx.get(ready, timeout=5)
     except (httpx.ConnectError, httpx.ConnectTimeout):
-        return False
-    except httpx.HTTPError:
-        pass
-    return True
+        return "nada escucha en ese puerto"
+    except httpx.ReadTimeout:
+        # Conecta pero no responde: típico de un port-forward suspendido con Ctrl+Z que retiene el puerto
+        return "el puerto acepta conexiones pero no responde (¿port-forward suspendido con Ctrl+Z? ciérralo con Ctrl+C)"
+    except httpx.HTTPError as e:
+        return f"error HTTP: {e.__class__.__name__}"
+    return None
 
 
 async def run(args) -> int:
     url = args.mcp_url
-    if not reachable(url):
-        log(f"servidor MCP no alcanzable en {url}")
-        log("port-forward: kubectl -n observability port-forward svc/tempo 3200:3200")
+    problem = reachable(url)
+    if problem:
+        log(f"servidor MCP no alcanzable en {url}: {problem}")
+        log("usa 'make rca', que abre y cierra su propio túnel a svc/tempo")
         return 2
     try:
         async with TempoMCP(url) as mcp:

@@ -11,19 +11,17 @@ CLIENTE_NOMBRE="${CLIENTE_NOMBRE:-Pepe Ramirez}"
 CLIENTE_DOCUMENTO="${CLIENTE_DOCUMENTO:-1032456789}"
 CONVENIO="${CONVENIO:-ELECTROPLUS}"
 MONTO="${MONTO:-220000}"
-APP_PORT=18080
-TEMPO_PORT=13200
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
 PY="${PY:-$DIR/.venv/bin/python}"
 TMP="$(mktemp -d)"
 
-kubectl --context "$CTX" -n pagos port-forward svc/payments-qr "$APP_PORT:80" >/dev/null 2>&1 &
-PF_APP=$!
-kubectl --context "$CTX" -n observability port-forward svc/tempo "$TEMPO_PORT:3200" >/dev/null 2>&1 &
-PF_TEMPO=$!
-disown "$PF_APP" "$PF_TEMPO"   # sin avisos de job control al cerrar los port-forwards
-trap 'kill $PF_APP $PF_TEMPO 2>/dev/null; rm -rf "$TMP"' EXIT
-sleep 4
+# Túneles en puertos libres, verificados antes de usarlos y cerrados al salir
+source "$DIR/scripts/eks_tunnels.sh"
+trap '_close_tunnels; rm -rf "$TMP"' EXIT
+open_tunnel pagos payments-qr 80 /
+APP_PORT=$TUNNEL_PORT
+open_tunnel observability tempo 3200 /ready
+TEMPO_PORT=$TUNNEL_PORT
 
 echo "== 1. Lo que vive el cliente (canal: app móvil)"
 echo "   ${CLIENTE_NOMBRE} · CC ${CLIENTE_DOCUMENTO} · paga \$${MONTO} a ${CONVENIO}"

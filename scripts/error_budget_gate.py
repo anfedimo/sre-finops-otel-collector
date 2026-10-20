@@ -191,6 +191,8 @@ def main():
 
     with open(args.slo) as f:
         slo = yaml.safe_load(f)
+    if args.profile not in slo["profiles"]:
+        parser.error(f"perfil '{args.profile}' inexistente en {args.slo}; disponibles: {', '.join(slo['profiles'])}")
     profile = slo["profiles"][args.profile]
     print(f"error-budget-gate · mode={args.mode} service={slo['service']} profile={args.profile} "
           f"· {datetime.now(timezone.utc):%Y-%m-%dT%H:%M:%SZ}", flush=True)
