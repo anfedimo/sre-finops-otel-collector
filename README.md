@@ -288,8 +288,7 @@ falla y emite el informe RCA para el Incident Commander. El agente no ejecuta ac
 | `LATENCIA` | Span raíz > 800 ms | Consume (SLO de latencia) |
 
 ```bash
-kubectl -n observability port-forward svc/tempo 3200:3200                    # Expone el MCP de Tempo
-make rca                                                                     # Falla más reciente (60 min)
+make rca                                                                     # Falla más reciente (abre su propio túnel a Tempo)
 make rca RCA_ARGS="--trace-id <id>"                                          # Traza específica
 make rca RCA_ARGS="--transaction-id QR-MGN4K2PA-ZXQA"                        # Por código de transacción de negocio
 make demo-pago                                                               # Pago de servicio público que falla en la entidad + RCA
@@ -298,6 +297,21 @@ LLM_BASE_URL=http://localhost:11434/v1 LLM_MODEL=deepseek-r1:7b make rca     # M
 DEEPSEEK_API_KEY=... make rca RCA_ARGS="--show-reasoning"                    # Motor llm DeepSeek-R1 con razonamiento visible
 DEEPSEEK_API_KEY=... make rca RCA_ARGS="--tool-mode native --show-reasoning" # R1 invoca las herramientas MCP
 make test-rca                                                                # Regresión sin infraestructura
+```
+
+Demostración en vivo sobre EKS: un comando por demo. Cada uno abre túneles en puertos libres, verifica que el
+servicio responda y los cierra al terminar, sin depender de terminales con `port-forward` abiertos.
+
+```bash
+make demo-preflight   # IP, nodos, Argo CD, réplicas, tráfico; cierra port-forwards suspendidos con Ctrl+Z
+make demo-gitops      # A · cambio manual a 3 réplicas y reversión de Argo CD (termina solo)
+make demo-gate        # B · Quality Gate de Error Budget, perfil poc (DECISION: BLOCK)
+make demo-reduccion   # C · reducción de spans del tail sampling y log-to-metrics
+make demo-pago        # D · pago fallido del cliente y diagnóstico RCA
+make demo-falso-500   # E · rechazo de riesgo con HTTP 500: no consume Error Budget
+make demo-falso-200   # E · falla del sistema con HTTP 200: consume Error Budget
+make demo-excepcion   # F · excepción del core AS400 con cuenta y tarjeta enmascaradas
+make demo-trafico     # Relanza el tráfico de demostración
 ```
 
 Runner self-hosted:
