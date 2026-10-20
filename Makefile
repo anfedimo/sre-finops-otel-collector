@@ -44,7 +44,7 @@ test-rca: $(PY)  ## Regresión del agente de RCA sobre trazas reales congeladas 
 rca: $(PY)       ## Informe RCA de la falla más reciente vía MCP (abre y cierra su propio túnel a svc/tempo)
 	$(TUNNELS) $(PY) scripts/sre_rca_agent.py $(RCA_ARGS)
 
-# --- Demostración en vivo sobre EKS: un comando por demo, cada uno con sus propios túneles ---
+# Demostración en vivo sobre EKS: un comando por demo, cada uno con sus propios túneles
 demo-preflight:  ## Verificación previa: IP, nodos, Argo CD, réplicas, tráfico y túneles colgados
 	scripts/demo_preflight.sh
 
@@ -53,7 +53,7 @@ demo-gitops:     ## Demo A: cambio manual no autorizado y reversión de Argo CD 
 
 demo-gate: $(PY) ## Demo B: Quality Gate de Error Budget con el perfil poc (esperado: DECISION: BLOCK)
 	@$(TUNNELS) $(PY) scripts/error_budget_gate.py pre-deploy --slo $(SLO_FILE) --profile poc \
-	  || echo "→ exit 1: el pipeline se detiene aquí y no despliega"
+	  || echo "exit 1: el pipeline se detiene aquí y no despliega"
 
 demo-reduccion: $(PY) ## Demo C: reducción de spans del tail sampling y log-to-metrics (Prometheus)
 	@$(TUNNELS) $(PY) scripts/demo_reduccion.py

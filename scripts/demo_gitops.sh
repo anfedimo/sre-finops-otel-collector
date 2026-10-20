@@ -10,7 +10,7 @@ deseadas=$("${K[@]}" get deploy payments-qr -o jsonpath='{.spec.replicas}')
 echo "== Estado declarado en Git: $deseadas réplica(s)"
 echo "== Cambio manual no autorizado: kubectl scale deploy/payments-qr --replicas=3"
 aplicadas=$("${K[@]}" scale deploy/payments-qr --replicas=3 -o jsonpath='{.spec.replicas}')
-printf '   réplicas en el clúster: %s  ← cambio manual aplicado\n' "$aplicadas"
+printf '   réplicas en el clúster: %s (cambio manual aplicado)\n' "$aplicadas"
 inicio=$(python3 -c 'import time; print(time.time())')
 
 for _ in $(seq 1 120); do
