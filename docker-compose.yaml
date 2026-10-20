@@ -1,8 +1,9 @@
 # Banco Plus · PoC local de observabilidad (ARM64 nativo: todas las imágenes son multi-arch)
 #
-#   traffic-generator ──OTLP──► otel-gateway ──┬──► apm-legacy    (stand-in Dynatrace, OTLP/HTTP)  :16686
-#   (emula agente Java)                        ├──► otel-backend  (stand-in Elastic / Tempo)       :16687
-#                                              └──► prometheus    (RED / SLO / Error Budget)       :9090
+# traffic-generator (emula el agente Java) envía OTLP a otel-gateway, que exporta a:
+#   apm-legacy    stand-in del APM legado, OTLP/HTTP   :16686
+#   otel-backend  stand-in del backend OTel            :16687
+#   prometheus    RED, SLO y Error Budget              :9090
 
 name: bancoplus-observability-poc
 
@@ -13,8 +14,8 @@ services:
     environment:
       # En producción estos valores vienen del gestor de secretos, nunca del repo
       PII_HASH_SALT: ${PII_HASH_SALT:-poc-salt-cambiar-en-prod}
-      DT_OTLP_ENDPOINT: ${DT_OTLP_ENDPOINT:-http://apm-legacy:4318}   # prod: https://<env-id>.live.dynatrace.com/api/v2/otlp
-      DT_API_TOKEN: ${DT_API_TOKEN:-poc-token}                          # scope: openTelemetryTrace.ingest
+      DT_OTLP_ENDPOINT: ${DT_OTLP_ENDPOINT:-http://apm-legacy:4318}   # prod: endpoint OTLP/HTTP del APM legado/otlp
+      DT_API_TOKEN: ${DT_API_TOKEN:-poc-token}                          # token de solo ingesta
       OTEL_BACKEND_ENDPOINT: ${OTEL_BACKEND_ENDPOINT:-otel-backend:4317}
     volumes:
       - ./collector/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro

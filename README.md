@@ -2,7 +2,7 @@
 
 **Owner:** Plataforma de Confiabilidad · **Modelo:** InnerSource (PRs abiertos a todas las verticales) · **Estado:** PoC
 
-Plataforma de telemetría para la migración del APM propietario (Dynatrace OneAgent) a OpenTelemetry con
+Plataforma de telemetría para la migración del APM propietario a OpenTelemetry con
 backend agnóstico. Las verticales migran sin cambiar una línea de código fuente y sin perder visibilidad
 durante la ventana de transición del APM legado (12 meses).
 
@@ -25,7 +25,7 @@ durante la ventana de transición del APM legado (12 meses).
 flowchart LR
     subgraph WL["Cargas de trabajo · Java"]
         direction TB
-        ECS["ECS Fargate<br/>JAVA_TOOL_OPTIONS -javaagent<br/>(init container)"]
+        ECS["Amazon ECS<br/>JAVA_TOOL_OPTIONS -javaagent<br/>(init container)"]
         EKS["Amazon EKS<br/>OTel Operator<br/>inject-java por namespace"]
         AS400["Core AS400<br/>traceparent W3C en MQ"]
     end
@@ -47,8 +47,8 @@ flowchart LR
 
     subgraph DST["Destinos"]
         direction TB
-        DT["Dynatrace<br/>OTLP/HTTP · solo transición"]
-        OB["Backend OTel<br/>Elastic / Tempo"]
+        DT["APM legado<br/>OTLP/HTTP · solo transición"]
+        OB["Backend OTel<br/>Tempo u otro compatible"]
         PROM["Prometheus / Mimir<br/>SLI · Error Budget · burn rate"]
         QG["Quality Gate CI/CD<br/>bloqueo · canary · rollback"]
     end
@@ -89,7 +89,7 @@ flowchart LR
 | Componente local | Rol | Imagen | Puerto |
 |---|---|---|---|
 | otel-gateway | Gateway | `otel/opentelemetry-collector-contrib:0.162.0` | 4317/4318 OTLP · 8888 interno · 8889 RED · 13133 health |
-| apm-legacy | Stand-in de Dynatrace (recibe OTLP/HTTP) | `jaegertracing/jaeger:2.22.0` | 16686 |
+| apm-legacy | Stand-in del APM legado (recibe OTLP/HTTP) | `jaegertracing/jaeger:2.22.0` | 16686 |
 | otel-backend | Stand-in del backend OTel | `jaegertracing/jaeger:2.22.0` | 16687 |
 | prometheus | SLI, Error Budget, alertas | `prom/prometheus:v3.13.4` | 9090 |
 | traffic-generator | Emula servicios Java autoinstrumentados | build local (OTel SDK 1.45.1) | — |
@@ -98,23 +98,23 @@ Imágenes multi-arch; ejecución nativa en arm64. Los artefactos de despliegue r
 
 ## Migración cero código
 
-El agente Java de OpenTelemetry (2.32.0) reemplaza a OneAgent sin recompilar ni modificar imágenes.
+El agente Java de OpenTelemetry (2.32.0) reemplaza al agente propietario sin recompilar ni modificar imágenes.
 
 | Plataforma | Mecanismo | Artefacto |
 |---|---|---|
 | Amazon EKS | OTel Operator; anotación `instrumentation.opentelemetry.io/inject-java` a nivel de namespace | `deploy/eks/instrumentation.yaml` |
 | Amazon EKS | Collector por nodo (DaemonSet) con enrutamiento por traceID hacia el Gateway | `deploy/eks/otel-node-collector.yaml` |
-| ECS Fargate | Init container copia el agente a un volumen compartido; `JAVA_TOOL_OPTIONS=-javaagent:...`; Collector en la tarea | `deploy/ecs-fargate/task-definition.json` |
+| Amazon ECS | Init container copia el agente a un volumen compartido; `JAVA_TOOL_OPTIONS=-javaagent:...`; Collector en la tarea | `deploy/ecs/task-definition.json` |
 
 Reglas de la migración:
 
-- **Un agente por JVM.** OneAgent y el agente OTel no coexisten; el cambio que activa uno desactiva el otro
-  (exclusión del namespace en DynaKube, o nueva revisión de la task definition).
-- **Rollback = revertir el PR.** Reactiva OneAgent en minutos; no hay estado que migrar.
+- **Un agente por JVM.** el agente propietario y el agente OTel no coexisten; el cambio que activa uno desactiva el otro
+  (exclusión del namespace en la inyección del agente propietario, o nueva revisión de la task definition).
+- **Rollback = revertir el PR.** Reactiva el agente propietario en minutos; no hay estado que migrar.
 - **Muestreo en el Gateway.** El SDK exporta el 100% (`parentbased_always_on`); la decisión se toma con la traza completa.
-- **Continuidad de dashboards.** Dynatrace sigue recibiendo la telemetría vía Dual-Shipping (endpoint
-  `/api/v2/otlp`, token con scope `openTelemetryTrace.ingest`). Los atributos `business.*` se agregan a la
-  allow-list de atributos de span de Dynatrace en F0.
+- **Continuidad de dashboards.** El APM legado sigue recibiendo la telemetría vía Dual-Shipping (endpoint
+  OTLP/HTTP, token de solo ingesta). Los atributos `business.*` se agregan a la allow-list de atributos de span
+  del APM legado en F0.
 
 ## Semántica de negocio
 
@@ -146,10 +146,10 @@ Normalización en el Gateway (antes de `span_metrics`, por lo que el SLI ya refl
 
 | Fase | Plazo | Alcance | Criterio de salida |
 |---|---|---|---|
-| **F0 · Fundación** | Meses 0–2 | Gateway por cuenta/VPC con PII, semántica de negocio, sampling y Dual-Shipping; backend OTel; módulos IaC; allow-list de atributos en Dynatrace | Gateway entrega a ambos destinos sin pérdida; `PII-001` y `BIZ-001` en PASS |
-| **F1 · Piloto** | Meses 2–4 | 1–2 aplicaciones no críticas: OneAgent → agente OTel; comparación lado a lado en ambos backends | Paridad de trazas ≥ 95%; sobrecosto de latencia < 3%; rollback a OneAgent ejecutado y probado |
-| **F2 · Olas por criticidad** | Meses 4–10 | Olas de 5–10 aplicaciones, de menor a mayor criticidad; SLO, alertas y dashboards como código; pruebas de caos por ola | Cada ola con SLO y alertas por burn rate equivalentes o superiores a las de Dynatrace |
-| **F3 · Cutover** | Meses 10–12 | Retiro de `otlp_http/apm-legacy` del Gateway (lectura histórica primero); cierre de licencia antes del vencimiento | Cero aplicaciones con OneAgent; ningún dashboard crítico depende de Dynatrace |
+| **F0 · Fundación** | Meses 0–2 | Gateway por cuenta/VPC con PII, semántica de negocio, sampling y Dual-Shipping; backend OTel; módulos IaC; allow-list de atributos en el APM legado | Gateway entrega a ambos destinos sin pérdida; `PII-001` y `BIZ-001` en PASS |
+| **F1 · Piloto** | Meses 2–4 | 1–2 aplicaciones no críticas: del agente propietario al agente OTel; comparación lado a lado en ambos backends | Paridad de trazas ≥ 95%; sobrecosto de latencia < 3%; rollback al agente propietario ejecutado y probado |
+| **F2 · Olas por criticidad** | Meses 4–10 | Olas de 5–10 aplicaciones, de menor a mayor criticidad; SLO, alertas y dashboards como código; pruebas de caos por ola | Cada ola con SLO y alertas por burn rate equivalentes o superiores a las del APM legado |
+| **F3 · Cutover** | Meses 10–12 | Retiro de `otlp_http/apm-legacy` del Gateway (lectura histórica primero); cierre de licencia antes del vencimiento | Cero aplicaciones con el agente propietario; ningún dashboard crítico depende del APM legado |
 
 Ninguna fase requiere cambios en el código de las aplicaciones; por eso el plan admite compresión (p. ej.,
 F1 y F2 en 3 meses) si el negocio adelanta el cutover.
@@ -202,9 +202,11 @@ del Collector contra el binario y `promtool` sobre las reglas SLO.
 
 `scripts/error_budget_gate.py` · SLO como código en `slo/payments-qr.yaml` · exit `0` PROCEED · `1` BLOCK/FAIL
 
-```
-workflow_dispatch ─► error-budget-gate ─► deploy ─► canary-analysis ─┬─► OK
-                      (pre-deploy)                  (service.version) └─► FAIL ─► rollback
+```mermaid
+flowchart LR
+    WD["workflow_dispatch"] --> EB["error-budget-gate<br/>(pre-deploy)"] --> DP["deploy"] --> CA["canary-analysis<br/>(service.version)"]
+    CA -->|OK| OK["release"]
+    CA -->|FAIL| RB["rollback"]
 ```
 
 | Gate | SLI | Política |

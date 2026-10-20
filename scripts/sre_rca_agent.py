@@ -95,7 +95,7 @@ Responde SOLO con un objeto JSON con estas claves:
  "recomendacion": "acción concreta para el Incident Commander"}"""
 
 
-# --------------------------------------------------------------------------------------------- modelo de datos
+# Modelo de datos
 @dataclass
 class Span:
     service: str
@@ -142,7 +142,7 @@ class Verdict:
     evidencia: list[str] = field(default_factory=list)
 
 
-# --------------------------------------------------------------------------------------------- parsing OTLP
+# Parsing OTLP
 def _value(v: dict):
     if not v:
         return None
@@ -182,7 +182,7 @@ def parse_trace(trace_id: str, payload: dict) -> Journey:
     return Journey(trace_id=trace_id, spans=spans, root=roots[0])
 
 
-# --------------------------------------------------------------------------------------------- motor determinista
+# Motor determinista
 def _culprit(j: Journey) -> Span:
     """Span más profundo con error o excepción; si no hay, el más lento por debajo del raíz."""
     with_error = [s for s in j.spans if s.status_code == "ERROR" or any(e["name"] == "exception" for e in s.events)]
@@ -267,7 +267,7 @@ def classify(j: Journey) -> Verdict:
     return Verdict("SIN_FALLA", False, "—", "La transacción terminó dentro del SLO.", "Sin acción.", "rules", evidence)
 
 
-# --------------------------------------------------------------------------------------------- cliente MCP
+# Cliente MCP
 class TempoMCP:
     """Sesión MCP contra Tempo restringida a herramientas de lectura."""
 
@@ -340,7 +340,7 @@ class TempoMCP:
         } for t in self.tools]
 
 
-# --------------------------------------------------------------------------------------------- motor LLM
+# Motor LLM
 def llm_config() -> dict | None:
     if os.environ.get("LLM_BASE_URL"):
         return {"base_url": os.environ["LLM_BASE_URL"], "api_key": os.environ.get("LLM_API_KEY", "local"),
@@ -441,7 +441,7 @@ async def llm_verdict(cfg: dict, mcp: TempoMCP, j: Journey, mode: str, max_steps
     raise RuntimeError(f"el modelo no concluyó en {max_steps} pasos")
 
 
-# --------------------------------------------------------------------------------------------- informe
+# Informe
 def log(message: str) -> None:
     print(f"[SRE-RCA-001] {message}", file=sys.stderr)
 
@@ -501,7 +501,7 @@ def render(j: Journey, v: Verdict, rules: Verdict, server: str, discrepancy: str
         bar_start = int(offset / total * width)
         bar_len = max(1, int(s.duration_ms / total * width))
         bar = " " * bar_start + "█" * min(bar_len, width - bar_start)
-        flag = " ✖" if s.status_code == "ERROR" else ""
+        flag = " ERROR" if s.status_code == "ERROR" else ""
         label = f"{s.service} · {s.kind} {s.name}"
         label = label if len(label) <= 52 - 2 * d else label[:49 - 2 * d] + "…"
         lines.append(f"  +{offset:6.1f} ms  {'  ' * d}{label}".ljust(66)
@@ -534,7 +534,7 @@ def render(j: Journey, v: Verdict, rules: Verdict, server: str, discrepancy: str
     return "\n".join(lines)
 
 
-# --------------------------------------------------------------------------------------------- orquestación
+# Orquestación
 def reachable(url: str) -> str | None:
     """None si Tempo responde; si no, el motivo. Se sondea /ready y no el endpoint MCP, que abre un stream SSE."""
     import httpx

@@ -1,7 +1,7 @@
 # Autoinstrumentación Java en EKS vía OpenTelemetry Operator. Cero cambios en código o imagen.
 # Activación por namespace (no por aplicación): la vertical migra con un PR a este repositorio.
-# Prerrequisito: el namespace queda fuera del namespaceSelector de DynaKube en el mismo cambio
-# (un solo agente por JVM; OneAgent y el agente OTel no coexisten).
+# Prerrequisito: el namespace queda fuera de la inyección del agente propietario en el mismo cambio
+# (un solo agente por JVM; el agente propietario y el agente OTel no coexisten).
 apiVersion: v1
 kind: Namespace
 metadata:
