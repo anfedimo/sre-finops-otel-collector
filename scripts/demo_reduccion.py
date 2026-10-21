@@ -5,6 +5,7 @@ Misma PromQL que se muestra en Grafana · Explore. Exit codes: 0 = datos present
 """
 import json
 import os
+import subprocess
 import sys
 import urllib.parse
 import urllib.request
@@ -14,6 +15,9 @@ WINDOW = "5m"
 RECEIVED = f'sum(rate(otelcol_receiver_accepted_spans{{job="otel-gateway"}}[{WINDOW}]))'
 SENT_BY_EXPORTER = f"sum by (exporter) (rate(otelcol_exporter_sent_spans[{WINDOW}]))"
 LOG_ERRORS_PER_MIN = f"sum(rate(app_log_errors_total[{WINDOW}])) * 60"
+REDUCTION = (f'1 - sum(rate(otelcol_exporter_sent_spans{{exporter="otlp_grpc/backend-otel"}}[{WINDOW}])) '
+             f'/ {RECEIVED}')
+SLO_DASHBOARD_UID = "slo-payments-qr"
 
 
 def query(promql):
@@ -39,7 +43,29 @@ def main():
     errors = query(LOG_ERRORS_PER_MIN)
     if errors:
         print(f"Log-to-metrics · errores de log convertidos en métrica: {float(errors[0]['value'][1]):.1f} /min")
+    print_console_links()
     return 0
+
+
+def print_console_links():
+    """Enlaces a Grafana con el dashboard SLO y la misma consulta de reducción ya cargada en Explore."""
+    try:
+        host = subprocess.run(
+            ["kubectl", "--context", os.getenv("KUBE_CONTEXT", "bancoplus-eks"), "-n", "observability", "get", "svc",
+             "kube-prometheus-stack-grafana", "-o", "jsonpath={.status.loadBalancer.ingress[0].hostname}"],
+            capture_output=True, text=True, timeout=15).stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return
+    if not host:
+        return
+    panes = {"a": {"datasource": "prometheus", "range": {"from": "now-15m", "to": "now"},
+                   "queries": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "prometheus"},
+                                "expr": REDUCTION, "instant": False, "range": True}]}}
+    explore = urllib.parse.quote(json.dumps(panes, separators=(",", ":")))
+    print()
+    print("Grafana")
+    print(f"   Dashboard SLO:            http://{host}/d/{SLO_DASHBOARD_UID}")
+    print(f"   Explore (reducción):      http://{host}/explore?schemaVersion=1&orgId=1&panes={explore}")
 
 
 if __name__ == "__main__":
